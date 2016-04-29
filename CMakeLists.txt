@@ -2,7 +2,7 @@
 cmake_minimum_required (VERSION 2.1)
 # 项目信息
 project (sniff2)
-#set(CMAKE_C_FLAGS "-g")
+set(CMAKE_C_FLAGS "-g")
 
 include_directories(inc)
 aux_source_directory(. DIR_SRCS)

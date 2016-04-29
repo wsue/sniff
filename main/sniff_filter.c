@@ -936,6 +936,9 @@ int SFilter_IsDeny(const struct SFilterCtl *filter,int vlanok,
     int             proto   = htons(heth->h_proto);
     int             i       = 0;
 
+    if( !filter )
+        return 0;
+
     data                    += ETH_HLEN;
     len                     -= ETH_HLEN;
     if( filter->bcastok != FILTER_LIMITMODE_ALL ){

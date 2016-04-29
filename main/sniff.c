@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <getopt.h>
 #include <string.h>
+#include <signal.h>
 
 #include "sniff_error.h"
 #include "sniff_conf.h"
@@ -220,6 +221,8 @@ end:
 
 static void ReleaseClean()
 {
+    SniffParser_Release();
+
     if( s_tDevCtl.release ){
         s_tDevCtl.release(&s_tDevCtl);
         s_tDevCtl.release = NULL;
@@ -230,7 +233,14 @@ static void ReleaseClean()
         s_tDevCtl.ptFilter    = NULL;
     }
 
-    SniffParser_Release();
+}
+
+void sig_handler( int sig)
+{
+    if(sig == SIGINT){
+        ReleaseClean();
+        exit(1);
+    }
 }
 
 
@@ -274,8 +284,13 @@ static int Run(struct SniffDevCtl *ptDev,const struct SniffConf *ptConf)
         if( len < 0 ){
             ret = len;
             PRN_MSG("recv frame fail, ret:%d\n",ret);
+            break;
         }
-        else if( 0 == SFilter_IsDeny(
+        else if( len == 0 ){
+            break;
+        }
+
+        if( 0 == SFilter_IsDeny(
                     ptDev->ptFilter,ptConf->bVlanOk,
                     ptDev->tRcvFrame.buf,len) ){
             recvcnt ++;
@@ -307,6 +322,7 @@ int main(int argc, char **argv)
 
     //  注册进程清除操作
     atexit(ReleaseClean);
+    signal(SIGINT, sig_handler);
 
     ret = Init(&s_tDevCtl,&tConf,tConf.ptFilter);
     if( ret != 0 ){
