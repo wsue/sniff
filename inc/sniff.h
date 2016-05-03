@@ -26,7 +26,7 @@
  */
 struct RcvFrameInfo{
     struct timeval              *ts;        /*  帧接收时间                  */
-    char                        *buf;       /*  接收到的帧数据              */
+    unsigned char               *buf;       /*  接收到的帧数据              */
 };
 
 
@@ -61,8 +61,13 @@ int SFilter_Validate(struct SFilterCtl *filter, unsigned short *pframetype);
 int SFilter_setBPF(const struct SFilterCtl *filter,int sd,int frametype);
 int SFilter_IsAllowTcpIp(const struct SFilterCtl *filter);
 
-int SFilter_IsDeny(const struct SFilterCtl *filter,int vlanok,
+int SFilter_IsDeny(const struct SFilterCtl *filter,unsigned int vlanok,
         const unsigned char *data,int len);
+
+int EthCapDev_Init(struct SniffDevCtl *ptCtl,const char *devname,
+        int promisc,int mmapqnum,
+        unsigned short frametype);
+
 
 #endif
 

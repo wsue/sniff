@@ -9,6 +9,11 @@
 #include "proto_tcpip.h"
 
 
+int DecDNSInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
+{
+    return 0;
+}
+
 void DecUDPInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex)
 {
     if( ptTcpIp->contentlen > 0 )

@@ -7,10 +7,32 @@
  *
  * =====================================================================================
  */
+#include <string.h>
+
 #include "sniff_error.h"
 #include "sniff.h"
 #include "sniff_conf.h"
 #include "sniff_parser.h"
+#include "proto_pub.h"
+
+
+#define RESET_SHOWBUF()         do{                     \
+    if( s_ucShowmode != SNIFF_SHOWMODE_SILENT ) {       \
+    g_wShowBufOffset    = 0;    g_strShowBuf[0] = 0;    \
+    }   \
+}while(0)
+
+
+#define DUMP_SHOWBUF()          do{ \
+    if( s_ucShowmode != SNIFF_SHOWMODE_SILENT ) { \
+        if( s_strMatchMode[0] == 0  \
+                || (s_ucShowmode == SNIFF_SHOWMODE_MATCH && strstr(g_strShowBuf,s_strMatchMode) )   \
+                || (s_ucShowmode == SNIFF_SHOWMODE_UNMATCH && !strstr(g_strShowBuf,s_strMatchMode) )){   \
+            puts(g_strShowBuf);     \
+        }                           \
+    }                               \
+}while(0)
+
 
 struct SniffParseItem{
 
@@ -20,8 +42,14 @@ struct SniffParseItem{
     void                            *param;
 };
 
-static int s_dwParserNum;
+static int                      s_dwParserNum;
 static struct SniffParseItem    s_tParsers[MAX_PARSER_NUM];
+
+
+static int  s_ucShowmode        = SNIFF_SHOWMODE_MATCH;
+static char s_strMatchMode[SNIFF_MATCH_MAX];
+
+
 
 int SnifParser_Init(const struct SniffConf *ptConf)
 {
@@ -33,10 +61,21 @@ int SnifParser_Init(const struct SniffConf *ptConf)
         }
     }
 
+    s_ucShowmode    = ptConf->ucShowmode;
+    strncpy(s_strMatchMode,ptConf->strMatch,sizeof(s_strMatchMode)-1);
+
+    if( ret == 0 
+            && ptConf->ucShowmode != SNIFF_SHOWMODE_SILENT ){
+        ret = ShowTime_Init(ptConf);
+        if( ret != 0 ){
+            PRN_MSG("create tcp filter fail,ret:%d\n",ret);
+        }
+    }
+
     if( ret == 0 
             && ptConf->ucShowmode != SNIFF_SHOWMODE_SILENT 
             && SFilter_IsAllowTcpIp(ptConf->ptFilter) ){
-        ret = TcpParser_Init(ptConf);
+        ret = TcpIpParser_Init(ptConf);
         if( ret != 0 ){
             PRN_MSG("create tcp filter fail,ret:%d\n",ret);
         }
@@ -50,10 +89,15 @@ int SnifParser_Exec(struct timeval *ts,const unsigned char* data,int len)
 {
     int i   =0;
     struct SniffParseItem   *ptItem = s_tParsers;
+
+    RESET_SHOWBUF();
     for( ; i < s_dwParserNum ; i ++,ptItem++ ) {
-        if( ptItem->parser )
+        if( ptItem->parser ) {
             ptItem->parser(ptItem->param,ts,data,len);
+        }
     }
+            
+    DUMP_SHOWBUF();
 
     return 0;
 }
@@ -86,5 +130,7 @@ int SniffParser_Release()
     }
 
     s_dwParserNum   = 0;
+
+    return 0;
 }
 

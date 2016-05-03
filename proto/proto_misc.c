@@ -54,7 +54,7 @@ void ProtoMisc_DecHex(const unsigned char* content, int contentlen)
                     tochar(pstr[0]),tochar(pstr[1]),tochar(pstr[2]),tochar(pstr[3]), tochar(pstr[4]),tochar(pstr[5]),tochar(pstr[6]),tochar(pstr[7]), tochar(pstr[8]),
                     tochar(pstr[9]),tochar(pstr[10]),tochar(pstr[11]), tochar(pstr[12]),tochar(pstr[13]),tochar(pstr[14]),tochar(pstr[15])
                     );
-            pstr    = p;
+            pstr    = (char *)p;
             needtab = 1;
         }
         /*
@@ -66,8 +66,39 @@ void ProtoMisc_DecHex(const unsigned char* content, int contentlen)
            */
     }
 
-    for( ;offset < contentlen ; offset ++, p ++ ){
-        PRN_SHOWBUF("%02x",*p);
+
+    if( offset < contentlen ){
+        if( needtab ){
+            needtab = 0;
+            PRN_SHOWBUF("\t\t");
+        }
+
+        for( ;offset < contentlen ; offset ++, p ++ ){
+            PRN_SHOWBUF("%02x",*p);
+        }
+
+        if( contentlen%16 ){
+            int     restnum         = 16 - (contentlen%16);
+            char    spacebuf[32]    = "";
+            if( restnum >= 12 ){
+                restnum += 2;
+            }
+            else if ( restnum >= 8 ){
+                restnum += 1;
+            }
+            /*else if ( restnum > 4 ){
+              restnum += 0;
+              }*/
+
+            if( restnum %4 == 0 ){
+                restnum --;
+            }
+
+            memset(spacebuf,' ',sizeof(spacebuf)-1);
+            spacebuf[ restnum*2 ] = 0;
+
+            PRN_SHOWBUF("%s",spacebuf);
+        }
     }
 
     if( (void*)pstr != (void *)p ){
@@ -77,5 +108,5 @@ void ProtoMisc_DecHex(const unsigned char* content, int contentlen)
         }
     }
 
-    PRN_SHOWBUF("\n");
+    PRN_SHOWBUF("\t\t");
 }

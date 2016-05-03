@@ -3,11 +3,16 @@ OBJS = ./main/sniff_filter_bpf.o \
        ./main/sniff_filter.o \
        ./main/sniff_eth.o \
        ./main/sniff_pcap.o \
-       ./proto/sniff_tcp.o \
-       ./proto/sniff_parser.o 
+	./proto/proto_misc.o \
+	./proto/proto_tcp.o \
+	./proto/proto_tcpip.o \
+	./proto/proto_udp.o \
+	./proto/proto_showtime.o \
+	./proto/sniff_parser.o
+	
 
 CC = gcc
-CFLAGS = -Wall -O -g -Iinc/
+CFLAGS = -Wall -O2 -g -Iinc/
 TARGET=./sniff
 
 %.o: %.c

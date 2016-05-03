@@ -33,8 +33,8 @@
 
 
 struct normalrcv_ctl{
-    char    buf[PER_PACKET_SIZE];
-    struct  timeval ts;
+    unsigned char       buf[PER_PACKET_SIZE];
+    struct  timeval     ts;
 };
 
 /*  mmap方式接收参数        */
@@ -261,9 +261,6 @@ static void iface_unpromisc(int sd,int ifindex)
  *  mmap方式监听框架
  *  
  -----------------------------------------------------------------------------*/
-static int mmap_init(int sd)
-{
-}
 
 
 static void mmap_release_hdr(struct mmaprcv_ctl *ptCtl)
@@ -336,7 +333,7 @@ static int mmap_read_callback(
     pmmap->ts.tv_sec      = pmmap->curhdr->tp_sec;
     pmmap->ts.tv_usec     = pmmap->curhdr->tp_usec;
 
-    ptCtl->tRcvFrame.buf = ((char*)pmmap->curhdr+pmmap->curhdr->tp_mac);
+    ptCtl->tRcvFrame.buf = ((unsigned char*)pmmap->curhdr+pmmap->curhdr->tp_mac);
 
     return pmmap->curhdr->tp_snaplen;
 }

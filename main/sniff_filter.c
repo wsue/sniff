@@ -474,8 +474,6 @@ static int analyse_normal_filter(struct filter_ctl *pfilter,
     memset(&denydst,0,sizeof(denydst));
 
     while( token ) {
-        struct NormalAnalyseCtl    *pctl   = NULL;
-
         if( !strcmp(token,"DALL") ) {
             filtermode    = FILTER_MODE_ALLOW_OR;
         }
@@ -885,7 +883,6 @@ int     SFilter_Analyse(struct SFilterCtl *filter,char opcode,const char *optarg
 
 int     SFilter_Validate(struct SFilterCtl *filter, unsigned short *pframetype)
 {
-    int svrsd   = -1;
     int ret;
 
     if( !filter )
@@ -928,13 +925,12 @@ int SFilter_IsAllowTcpIp(const struct SFilterCtl *filter)
  * @return  0:  ²»¹ýÂË
  *          1:  ¹ýÂË
  */
-int SFilter_IsDeny(const struct SFilterCtl *filter,int vlanok,
+int SFilter_IsDeny(const struct SFilterCtl *filter,unsigned int vlanok,
         const unsigned char *data,int len)
 {
     int                     ret = 0;
     struct ethhdr*  heth    = (struct ethhdr*)data;
     int             proto   = htons(heth->h_proto);
-    int             i       = 0;
 
     if( !filter )
         return 0;

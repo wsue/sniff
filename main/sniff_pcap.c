@@ -9,6 +9,7 @@
 
 #include "sniff_error.h"
 #include "sniff.h"
+#include "sniff_parser.h"
 
 /*
  * Standard libpcap format.
@@ -90,14 +91,14 @@ static FILE* SniffPcap_Open(const char* fname,int isread)
             return NULL;
         }
 
-        PRN_MSG("dump head: snaplen:%d linktyp:$d sigfigs:%d \n",
+        PRN_MSG("dump head: snaplen:%d linktyp:%d sigfigs:%d \n",
                 hdr2.snaplen,hdr2.linktype,hdr2.sigfigs);
         return fp;
     }
 }
 
 
-static void SniffPcap_Write(FILE *fp,const struct timeval *ts,const unsigned char* data,int len)
+static int SniffPcap_Write(FILE *fp,const struct timeval *ts,const unsigned char* data,int len)
 {
     if( fp ) {
         struct pcap_sf_pkthdr sf_hdr;
@@ -110,6 +111,8 @@ static void SniffPcap_Write(FILE *fp,const struct timeval *ts,const unsigned cha
         (void)fwrite(&sf_hdr, sizeof(sf_hdr), 1, fp);
         (void)fwrite(data, len, 1, fp);
     }
+
+    return 0;
 }
 
 static int SniffPcap_Read(FILE *fp,struct timeval *ts,unsigned char* data,int len)
@@ -143,19 +146,21 @@ static int SniffPcap_Read(FILE *fp,struct timeval *ts,unsigned char* data,int le
     return -1;
 }
 
-static void SniffPcap_Close(FILE *fp)
+static int SniffPcap_Close(FILE *fp)
 {
     if( fp ) {
         fflush(NULL);
         fclose(fp);
     }
+
+    return 0;
 }
 
 
 
 struct PCapRcvCtl{
     FILE            *fp;
-    char            buf[PER_PACKET_SIZE];
+    unsigned char   buf[PER_PACKET_SIZE];
     struct  timeval ts;
 };
 
@@ -224,7 +229,7 @@ int PCapOutput_Init(const char *outfilename)
         return ERRCODE_SNIFF_OPENFILE;
     }
 
-    ret             = SniffParser_Register(SniffPcap_Close,SniffPcap_Write,fp);
+    ret             = SniffParser_Register((SNIFFPARSER_RELEASE_CALLBACK)SniffPcap_Close,(SNIFFPARSER_PARSE_CALLBACK)SniffPcap_Write,fp);
     if( ret != 0 ){
         SniffPcap_Close(fp);
     }

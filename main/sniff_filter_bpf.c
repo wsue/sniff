@@ -31,9 +31,9 @@
     fprog.filter        = bpf;                                                      \
     ret = setsockopt(sd, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog));          \
     if( ret != 0 ) {                                                                    \
-        PRN_MSG("set filter " #bpf " len:%d fail,errno:%d "errhint"\n",sizeof(bpf)/sizeof(struct sock_filter),errno);    \
+        PRN_MSG("set filter " #bpf " len:%lu fail,errno:%d "errhint"\n",sizeof(bpf)/sizeof(struct sock_filter),errno);    \
     }else{                                                                                   \
-        DBG_ECHO("set filter " #bpf " len:%d succ "errhint"\n",sizeof(bpf)/sizeof(struct sock_filter));    \
+        DBG_ECHO("set filter " #bpf " len:%lu succ "errhint"\n",sizeof(bpf)/sizeof(struct sock_filter));    \
     } \
 }while(0)
 
@@ -54,6 +54,7 @@
  *  其它的,后面考虑增加从文本中读取 bpf 过滤规则
  *      
  */
+#if 0
 static int proto2frametype(int protoid)
 {
     switch( protoid ){
@@ -80,6 +81,7 @@ static int proto2iptype(int protoid)
 
     return 0;
 }
+#endif
 
 static struct sock_filter bpf_all[]    = {
     { 0x28, 0, 0, 0x0000000c },     //  0

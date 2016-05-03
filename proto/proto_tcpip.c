@@ -26,20 +26,9 @@ static int  s_bDecEthMac    = 0;
 static int  s_bDecHex       = 0;
 
 
-static void ShowTime(const struct timeval *ts)
-{
-    time_t  when    = ts->tv_sec;
-    struct  tm  day = *localtime(&when);
-    PRN_SHOWBUF("%02d %02d:%02d:%02d-%03d ",
-            day.tm_mday,day.tm_hour,day.tm_min,day.tm_sec,ts->tv_usec/1000);
-}
-
-
 #define ASSERT_PORTTYPE(portnum,retval)     if( ptTcpIp->srcport == portnum || ptTcpIp->dstport == portnum )  return retval
 static uint8_t  GetTcpIpInfo( struct TcpIpInfo *ptTcpIp,const struct iphdr    *piphdr,const unsigned char *content,int contentlen)
 {
-    struct tcphdr   *ptcphdr    = (struct tcphdr*)(content);
-
     memset(ptTcpIp,0,sizeof(*ptTcpIp));
     ptTcpIp->iphdr              = piphdr;
     ip2str(htonl(piphdr->saddr),ptTcpIp->srcip);
@@ -230,7 +219,6 @@ static int TcpipParser_Decode(void *param,const struct timeval *ts,const unsigne
         ethproto    |= ipflag << 16;
     }
 
-    ShowTime(ts);
     ShowEthHead(s_bDecEthMac,heth,ethproto);
 
     if( contentlen < 0 ){
