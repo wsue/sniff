@@ -47,11 +47,11 @@
 #define TCPPORTTYP_VNC8     (TCP_PORTTYP_START +88) //  5908 ¶Ë¿Ú
 #define TCPPORTTYP_VNC9     (TCP_PORTTYP_START +89) //  5909 ¶Ë¿Ú
 
-
+#define IP_STR_LEN      16
 
 struct TcpIpInfo{
-    char            srcip[16];
-    char            dstip[16];
+    char            srcip[IP_STR_LEN];
+    char            dstip[IP_STR_LEN];
     uint16_t        srcport;
     uint16_t        dstport;
 

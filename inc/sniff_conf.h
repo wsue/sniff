@@ -31,6 +31,7 @@
 
 #define SNIFF_OPCODE_PROTO      'P'
 #define SNIFF_OPCODE_FILTER     'F'
+#define SNIFF_OPCODE_ALIAS      'A'
 
 #define SNIFF_OPCODE_REMOTE     '2'
 #define SNIFF_OPCODE_BCAST      '3'
@@ -47,6 +48,7 @@ struct SniffConf{
     char    strEthname[32];             //  网卡名
     char    strCapFileRd[256];          //  如果不使用网卡,从哪个文件读报文
     char    strCapFileWr[256];          //  抓包输出文件名
+    char    strAlias[256];              //  IP别名机制，类型为name=x.y.z.a,name2=c.d.e.f
 
     uint32_t        dwCapNum;           //  抓包数,0表示不限
     uint16_t        wEthFrameType;      //  默认以太网帧类型,由ptFilter得到

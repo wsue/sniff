@@ -190,8 +190,6 @@ int PCapDev_Init(struct SniffDevCtl *ptCtl,const char *capfilename)
     if( !ptCtl || !capfilename || !*capfilename )
         return ERRCODE_SNIFF_PARAMERR;
 
-    memset(ptCtl,0,sizeof(*ptCtl));
-
     fp      = SniffPcap_Open(capfilename,1);
     if( !fp )
         return ERRCODE_SNIFF_OPENFILE;

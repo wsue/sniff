@@ -40,7 +40,7 @@ static void protocol_settype(struct SFilterCtl *filter,const char* syntax)
 
     char            cache[256]  = "";
     char            *token;
-    char            *lasts;
+    char            *lasts      = NULL;
 
     int             i;
 
@@ -458,7 +458,7 @@ static int analyse_normal_filter(struct filter_ctl *pfilter,
         char* param,const char *keyword,
         int (*value_callback)(union filter_item *out,const char *val))
 {
-    char    *lasts;
+    char    *lasts      = NULL;
     char    *token      = strtok_r(param,",",&lasts);
     int     keywordlen  = strlen(keyword);
 

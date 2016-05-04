@@ -35,6 +35,7 @@ static struct option sniff_options[] = {
     {"data",         1, 0, SNIFF_OPCODE_DATA},
 
     //  显示控制
+    {"alias",        1, 0, SNIFF_OPCODE_ALIAS},
     {"m",            1, 0, SNIFF_OPCODE_SHOWMATCH},
     {"M",            1, 0, SNIFF_OPCODE_SHOWNOMATCH},
     {"x",            0, 0, SNIFF_OPCODE_DECHEX},
@@ -81,6 +82,7 @@ static void help(const char *appname)
     //  显示控制
     printf("\n\t-m     - only show match record\n"
             "\t-M     - filter match record(don't show)\n"
+            "\t-alias - ='name1=1.2.3.4,name2=5.6.7.8',show IP as alias\n"
             "\t-x     - use hex to decode unknown tcp frame\n"
             "\t-w     - write capture result to filename\n"
             "\t-s     - silient mode(don't decode package to screen)\n"
@@ -144,6 +146,11 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
                 ptConf->ucShowmode = SNIFF_SHOWMODE_UNMATCH;
                 memset(ptConf->strMatch,0,sizeof(ptConf->strMatch));
                 strncpy(ptConf->strMatch,optarg,sizeof(ptConf->strMatch)-1);
+                break;
+
+            case SNIFF_OPCODE_ALIAS:
+                memset(ptConf->strAlias,0,sizeof(ptConf->strAlias));
+                strncpy(ptConf->strAlias,optarg,sizeof(ptConf->strAlias)-1);
                 break;
 
             case SNIFF_OPCODE_RELATIMESTAMP:

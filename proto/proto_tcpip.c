@@ -20,19 +20,74 @@
 #include "proto_pub.h"
 #include "proto_tcpip.h"
 
+#define MAX_IP_ALIAS_NUM    32
+
+struct IPAlias{
+    uint32_t    ipaddr;
+    char        alias[IP_STR_LEN];
+};
+
+
+
+struct IPAlias  s_atIPAlias[MAX_IP_ALIAS_NUM];
 
 
 static int  s_bDecEthMac    = 0;
 static int  s_bDecHex       = 0;
 
 
+
+static inline const char* ip2alias(uint32_t ip,char *cache){
+    int     i = 0;
+    for( ; i < MAX_IP_ALIAS_NUM && s_atIPAlias[i].ipaddr != 0; i ++ ){
+        if( s_atIPAlias[i].ipaddr == ip ){
+            strncpy(cache,s_atIPAlias[i].alias,IP_STR_LEN -1);
+            return cache;
+        }
+    }
+
+    return ip2str(ip,cache);
+}
+
+static void ParseIpAlias(const char *conf)
+{
+    int     count   = 0;
+    char    *cache = strdup(conf);
+
+    char            *lasts  = NULL;
+    char *token   = strtok_r(cache,",",&lasts);
+    while( token && count < MAX_IP_ALIAS_NUM ) {
+        char    *p  = strchr(token,'=');
+        if( p ){
+            uint32_t    ip  = 0;
+            *p++    = 0;
+            ip          = inet_addr(p);
+            if( ip && token[0] ){
+                s_atIPAlias[count].ipaddr  = ntohl(ip);
+                strncpy( s_atIPAlias[count].alias,token,IP_STR_LEN-1);
+                count ++;
+            }
+            else{
+                printf("ip alias [%s] has some error(%s ip = 0 invalid or no name), skip it\n",conf,token);
+            }
+        }
+        else{
+            printf("ip alias [%s] has some error(%s unable to parse), skip it\n",conf,token);
+        }
+        token   = strtok_r(NULL,",",&lasts);
+    }
+
+    free(cache);
+
+}
+
 #define ASSERT_PORTTYPE(portnum,retval)     if( ptTcpIp->srcport == portnum || ptTcpIp->dstport == portnum )  return retval
 static uint8_t  GetTcpIpInfo( struct TcpIpInfo *ptTcpIp,const struct iphdr    *piphdr,const unsigned char *content,int contentlen)
 {
     memset(ptTcpIp,0,sizeof(*ptTcpIp));
     ptTcpIp->iphdr              = piphdr;
-    ip2str(htonl(piphdr->saddr),ptTcpIp->srcip);
-    ip2str(htonl(piphdr->daddr),ptTcpIp->dstip);
+    ip2alias(htonl(piphdr->saddr),ptTcpIp->srcip);
+    ip2alias(htonl(piphdr->daddr),ptTcpIp->dstip);
 
     if( piphdr->protocol == IPPROTO_UDP ){
         ptTcpIp->udphdr         = (struct udphdr *)(content);
@@ -189,7 +244,7 @@ static void ShowEthHead(int decmac,const struct ethhdr *eth,uint32_t ethproto)
 
 static void ShowTcpIpInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
 {
-    PRN_SHOWBUF("%s:%-4d => %s:%-4d <",
+    PRN_SHOWBUF("%15s:%-5d => %15s:%-5d <",
             ptTcpIp->srcip,ptTcpIp->srcport,
             ptTcpIp->dstip,ptTcpIp->dstport);
 
@@ -267,6 +322,7 @@ int TcpIpParser_Init(const struct SniffConf *ptConf)
 {
     s_bDecEthMac    = ptConf->bDecEth;
     s_bDecHex       = ptConf->ucDecHex;
+    ParseIpAlias(ptConf->strAlias);
     return SniffParser_Register(NULL,TcpipParser_Decode,NULL);
 }
 
