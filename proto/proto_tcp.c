@@ -23,7 +23,7 @@
 
 void DecTCPInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex)
 {
-    PRN_SHOWBUF("seq: %u ack:%u %s%s%s%s%s ",
+    PRN_SHOWBUF("seq: %10u ack:%10u %s%s%s%s%s ",
             ptTcpIp->tcphdr->seq,ptTcpIp->tcphdr->ack_seq,
             ptTcpIp->tcphdr->syn ? "syn ":"",
             ptTcpIp->tcphdr->ack ? "ack ":"",

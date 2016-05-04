@@ -42,6 +42,7 @@ static uint8_t  GetTcpIpInfo( struct TcpIpInfo *ptTcpIp,const struct iphdr    *p
         ptTcpIp->contentlen     = contentlen - sizeof(struct udphdr);
 
         ASSERT_PORTTYPE(69,UDPPORTTYP_TFTP);
+        ASSERT_PORTTYPE(53,UDPPORTTYP_DNS);
         return UDP_PORTTYP_UNKNOWN;
     }
 
@@ -75,6 +76,17 @@ static uint8_t  GetTcpIpInfo( struct TcpIpInfo *ptTcpIp,const struct iphdr    *p
     ASSERT_PORTTYPE(194,TCPPORTTYP_IRC);
     ASSERT_PORTTYPE(220,TCPPORTTYP_IMAP3);
     ASSERT_PORTTYPE(443,TCPPORTTYP_HTTPS);
+    
+    ASSERT_PORTTYPE(5900,TCPPORTTYP_VNC0);
+    ASSERT_PORTTYPE(5901,TCPPORTTYP_VNC1);
+    ASSERT_PORTTYPE(5902,TCPPORTTYP_VNC2);
+    ASSERT_PORTTYPE(5903,TCPPORTTYP_VNC3);
+    ASSERT_PORTTYPE(5904,TCPPORTTYP_VNC4);
+    ASSERT_PORTTYPE(5905,TCPPORTTYP_VNC5);
+    ASSERT_PORTTYPE(5906,TCPPORTTYP_VNC6);
+    ASSERT_PORTTYPE(5907,TCPPORTTYP_VNC7);
+    ASSERT_PORTTYPE(5908,TCPPORTTYP_VNC8);
+    ASSERT_PORTTYPE(5909,TCPPORTTYP_VNC9);
 
     return TCP_PORTTYP_UNKNOWN;
 }
@@ -84,7 +96,7 @@ static uint8_t  GetTcpIpInfo( struct TcpIpInfo *ptTcpIp,const struct iphdr    *p
 
 static const char *EthProto2Str(uint32_t proto,char *cache)
 {
-    uint16_t    ipflag      = (proto >> 16) & 0x7f;
+    uint16_t    ipflag      = (proto >> 16) & 0xff;
     uint16_t    ethproto    = proto & 0xffff;
 
     //  对认识的 tcp/ip端口返回协议类型
@@ -110,7 +122,18 @@ static const char *EthProto2Str(uint32_t proto,char *cache)
         PORTTYPE2STR(IRC);
         PORTTYPE2STR(IMAP3);
         PORTTYPE2STR(HTTPS);
+        PORTTYPE2STR(VNC0);
+        PORTTYPE2STR(VNC1);
+        PORTTYPE2STR(VNC2);
+        PORTTYPE2STR(VNC3);
+        PORTTYPE2STR(VNC4);
+        PORTTYPE2STR(VNC5);
+        PORTTYPE2STR(VNC6);
+        PORTTYPE2STR(VNC7);
+        PORTTYPE2STR(VNC8);
+        PORTTYPE2STR(VNC9);
 
+        case UDPPORTTYP_DNS:        return "DNS";
         case UDPPORTTYP_TFTP:       return "TFTP";
         case UDP_PORTTYP_UNKNOWN:   return "UDP";
         case TCP_PORTTYP_UNKNOWN:   return "TCP";
@@ -153,7 +176,7 @@ static void ShowEthHead(int decmac,const struct ethhdr *eth,uint32_t ethproto)
 {
     char    cache[8]    = "";
 
-    PRN_SHOWBUF("%s%s ",ethproto & VLAN_FLAG ? "VLAN:":"",EthProto2Str(ethproto,cache));
+    PRN_SHOWBUF("%s%6s ",ethproto & VLAN_FLAG ? "VLAN:":"",EthProto2Str(ethproto,cache));
     if( decmac ){
         PRN_SHOWBUF("%02X%02X%02X%02X%02X%02X -> %02X%02X%02X%02X%02X%02X ",
                 eth->h_dest[0],eth->h_dest[1],eth->h_dest[2],
@@ -166,11 +189,11 @@ static void ShowEthHead(int decmac,const struct ethhdr *eth,uint32_t ethproto)
 
 static void ShowTcpIpInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
 {
-    PRN_SHOWBUF("%s:%d => %s:%d <",
+    PRN_SHOWBUF("%s:%-4d => %s:%-4d <",
             ptTcpIp->srcip,ptTcpIp->srcport,
             ptTcpIp->dstip,ptTcpIp->dstport);
 
-    PRN_SHOWBUF("data sz:%d ",ptTcpIp->contentlen);
+    PRN_SHOWBUF("data sz:%4d ",ptTcpIp->contentlen);
 
     //  只解 TCP包
     if( ptTcpIp->contentlen < 0 ){
@@ -185,7 +208,7 @@ static void ShowTcpIpInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
         DecUDPInfo(ptTcpIp,ipflag,s_bDecHex);
     }
     else{
-        PRN_SHOWBUF("ip type:0x%02x(%s)",ptTcpIp->iphdr->protocol,IPProto2Str(ptTcpIp->iphdr->protocol));
+        PRN_SHOWBUF("ip type:0x%02x(%5s)",ptTcpIp->iphdr->protocol,IPProto2Str(ptTcpIp->iphdr->protocol));
     }
 
     PRN_SHOWBUF(">");
@@ -198,22 +221,28 @@ static int TcpipParser_Decode(void *param,const struct timeval *ts,const unsigne
     uint32_t                ethproto    = htons(heth->h_proto);
     uint16_t                ipflag      = 0;
     const struct iphdr      *piphdr     = NULL;
-    int                     contentlen  = len;
+    int                     restlen     = len;
 
 
     data            +=          ETH_HLEN;
-    contentlen      -=          ETH_HLEN;
+    restlen         -=          ETH_HLEN;
 
     if( ethproto == ETH_P_8021Q ){
         ethproto    = htons(*(uint16_t *)data) | VLAN_FLAG;
         data        += 2;
-        contentlen  -= 2;
+        restlen     -= 2;
     }
 
     if( (ethproto & 0xffff) == ETH_P_IP ){
+        int         contentlen;
         piphdr      = (const struct iphdr    *)(data);
-        data        += 4 * piphdr->ihl;
-        contentlen  -= 4 * piphdr->ihl;
+        contentlen  = htons(piphdr->tot_len) - (piphdr->ihl << 2);
+        data        += (piphdr->ihl << 2);
+        restlen     -= (piphdr->ihl << 2);
+        if( restlen < contentlen ){
+            PRN_SHOWBUF("###### \tWRONG FRAME, recv restlen %d < protocol content len:%d \n",restlen,contentlen);
+        }
+
 
         ipflag      = GetTcpIpInfo(&tTcpIp,piphdr,data,contentlen);
         ethproto    |= ipflag << 16;
@@ -221,7 +250,7 @@ static int TcpipParser_Decode(void *param,const struct timeval *ts,const unsigne
 
     ShowEthHead(s_bDecEthMac,heth,ethproto);
 
-    if( contentlen < 0 ){
+    if( restlen < 0 ){
         PRN_SHOWBUF("WRONG ETH FRAME, eth frame len:%d ",len);
     }
 
