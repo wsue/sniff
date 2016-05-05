@@ -36,16 +36,9 @@
 #define TCPPORTTYP_IMAP3    (TCP_PORTTYP_START +37) //  220  端口
 #define TCPPORTTYP_HTTPS    (TCP_PORTTYP_START +38) //  443  端口
 
-#define TCPPORTTYP_VNC0     (TCP_PORTTYP_START +80) //  5900  端口
-#define TCPPORTTYP_VNC1     (TCP_PORTTYP_START +81) //  5901  端口
-#define TCPPORTTYP_VNC2     (TCP_PORTTYP_START +82) //  5902 端口
-#define TCPPORTTYP_VNC3     (TCP_PORTTYP_START +83) //  5903 端口
-#define TCPPORTTYP_VNC4     (TCP_PORTTYP_START +84) //  5904 端口
-#define TCPPORTTYP_VNC5     (TCP_PORTTYP_START +85) //  5905 端口
-#define TCPPORTTYP_VNC6     (TCP_PORTTYP_START +86) //  5906 端口
-#define TCPPORTTYP_VNC7     (TCP_PORTTYP_START +87) //  5907 端口
-#define TCPPORTTYP_VNC8     (TCP_PORTTYP_START +88) //  5908 端口
-#define TCPPORTTYP_VNC9     (TCP_PORTTYP_START +89) //  5909 端口
+#define TCPPORTTYP_VNC      (TCP_PORTTYP_START +80) //  5900-5999  端口
+
+#define IS_VNC_PORT(port)   ((port) >= 5900 && (port) <= 5999 )
 
 #define IP_STR_LEN      16
 
@@ -54,6 +47,9 @@ struct TcpIpInfo{
     char            dstip[IP_STR_LEN];
     uint16_t        srcport;
     uint16_t        dstport;
+
+    uint8_t         servport_side;      //  服务端口所在位置, 0:no  1:src, 2: dst */
+    char            pad[3];
 
     const struct iphdr    *iphdr;
     union{

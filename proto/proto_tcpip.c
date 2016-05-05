@@ -81,7 +81,25 @@ static void ParseIpAlias(const char *conf)
 
 }
 
-#define ASSERT_PORTTYPE(portnum,retval)     if( ptTcpIp->srcport == portnum || ptTcpIp->dstport == portnum )  return retval
+static inline int GetShowColorVal(const struct TcpIpInfo *ptTcpIp)
+{
+    const static int    colorcfg[10]    = {32,33,34,35,36,  37,92,93,95,96};
+    if( ptTcpIp->servport_side == 1 ){
+        return colorcfg[ptTcpIp->dstport %10];
+    }
+    else if( ptTcpIp->servport_side == 2 ){
+        return colorcfg[ptTcpIp->srcport %10];
+    }
+    else{
+        return 97;
+    }
+}
+
+#define ASSERT_PORTTYPE(portnum,retval)     do{ \
+    if( ptTcpIp->srcport == portnum || ptTcpIp->dstport == portnum ){           \
+        ptTcpIp->servport_side      = ((ptTcpIp->srcport == portnum) ? 1 :2);   \
+        return retval;                          \
+    }}while(0)
 static uint8_t  GetTcpIpInfo( struct TcpIpInfo *ptTcpIp,const struct iphdr    *piphdr,const unsigned char *content,int contentlen)
 {
     memset(ptTcpIp,0,sizeof(*ptTcpIp));
@@ -132,16 +150,14 @@ static uint8_t  GetTcpIpInfo( struct TcpIpInfo *ptTcpIp,const struct iphdr    *p
     ASSERT_PORTTYPE(220,TCPPORTTYP_IMAP3);
     ASSERT_PORTTYPE(443,TCPPORTTYP_HTTPS);
     
-    ASSERT_PORTTYPE(5900,TCPPORTTYP_VNC0);
-    ASSERT_PORTTYPE(5901,TCPPORTTYP_VNC1);
-    ASSERT_PORTTYPE(5902,TCPPORTTYP_VNC2);
-    ASSERT_PORTTYPE(5903,TCPPORTTYP_VNC3);
-    ASSERT_PORTTYPE(5904,TCPPORTTYP_VNC4);
-    ASSERT_PORTTYPE(5905,TCPPORTTYP_VNC5);
-    ASSERT_PORTTYPE(5906,TCPPORTTYP_VNC6);
-    ASSERT_PORTTYPE(5907,TCPPORTTYP_VNC7);
-    ASSERT_PORTTYPE(5908,TCPPORTTYP_VNC8);
-    ASSERT_PORTTYPE(5909,TCPPORTTYP_VNC9);
+    if( IS_VNC_PORT(ptTcpIp->srcport) ){
+        ptTcpIp->servport_side  = 1;
+        return TCPPORTTYP_VNC;
+    }
+    if( IS_VNC_PORT(ptTcpIp->dstport) ){
+        ptTcpIp->servport_side  = 2;
+        return TCPPORTTYP_VNC;
+    }
 
     return TCP_PORTTYP_UNKNOWN;
 }
@@ -177,16 +193,8 @@ static const char *EthProto2Str(uint32_t proto,char *cache)
         PORTTYPE2STR(IRC);
         PORTTYPE2STR(IMAP3);
         PORTTYPE2STR(HTTPS);
-        PORTTYPE2STR(VNC0);
-        PORTTYPE2STR(VNC1);
-        PORTTYPE2STR(VNC2);
-        PORTTYPE2STR(VNC3);
-        PORTTYPE2STR(VNC4);
-        PORTTYPE2STR(VNC5);
-        PORTTYPE2STR(VNC6);
-        PORTTYPE2STR(VNC7);
-        PORTTYPE2STR(VNC8);
-        PORTTYPE2STR(VNC9);
+        PORTTYPE2STR(VNC);
+
 
         case UDPPORTTYP_DNS:        return "DNS";
         case UDPPORTTYP_TFTP:       return "TFTP";
@@ -237,14 +245,14 @@ static void ShowEthHead(int decmac,const struct ethhdr *eth,uint32_t ethproto)
                 eth->h_dest[0],eth->h_dest[1],eth->h_dest[2],
                 eth->h_dest[3],eth->h_dest[4],eth->h_dest[5],
                 eth->h_source[0],eth->h_source[1],eth->h_source[2],
-                eth->h_source[3],eth->h_source[4],eth->h_source[5]
-                );
+                eth->h_source[3],eth->h_source[4],eth->h_source[5]);
     }
 }
 
 static void ShowTcpIpInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
 {
-    PRN_SHOWBUF("%15s:%-5d => %15s:%-5d <",
+    PRN_SHOWBUF("\e[%dm%15s:%-5d => %15s:%-5d <",
+            GetShowColorVal(ptTcpIp),
             ptTcpIp->srcip,ptTcpIp->srcport,
             ptTcpIp->dstip,ptTcpIp->dstport);
 
@@ -266,7 +274,7 @@ static void ShowTcpIpInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
         PRN_SHOWBUF("ip type:0x%02x(%5s)",ptTcpIp->iphdr->protocol,IPProto2Str(ptTcpIp->iphdr->protocol));
     }
 
-    PRN_SHOWBUF(">");
+    PRN_SHOWBUF(">\e[0m");
 }
 
 static int TcpipParser_Decode(void *param,const struct timeval *ts,const unsigned char* data,int len)
@@ -295,7 +303,7 @@ static int TcpipParser_Decode(void *param,const struct timeval *ts,const unsigne
         data        += (piphdr->ihl << 2);
         restlen     -= (piphdr->ihl << 2);
         if( restlen < contentlen ){
-            PRN_SHOWBUF("###### \tWRONG FRAME, recv restlen %d < protocol content len:%d \n",restlen,contentlen);
+            PRN_SHOWBUF("\e[31m###### \tWRONG FRAME, recv restlen %d < protocol content len:%d \e[0m\n",restlen,contentlen);
         }
 
 
@@ -306,7 +314,7 @@ static int TcpipParser_Decode(void *param,const struct timeval *ts,const unsigne
     ShowEthHead(s_bDecEthMac,heth,ethproto);
 
     if( restlen < 0 ){
-        PRN_SHOWBUF("WRONG ETH FRAME, eth frame len:%d ",len);
+        PRN_SHOWBUF("\e[31mWRONG ETH FRAME, eth frame len:%d \e[0m",len);
     }
 
     if( piphdr != NULL ){
