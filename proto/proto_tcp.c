@@ -63,7 +63,13 @@ void DecTCPInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex)
         if( !DecShowableInfo(ptTcpIp,ipflag) ){
             if( ipflag != TCPPORTTYP_HTTPS && ipflag != TCPPORTTYP_SSH && ucDecHex ){
                 ProtoMisc_DecHex(ptTcpIp->content,ptTcpIp->contentlen);
+
+                return ;
             }
+        }
+
+        if( ucDecHex == SNIFF_HEX_ALLPKG ){
+                ProtoMisc_DecHex(ptTcpIp->content,ptTcpIp->contentlen);
         }
     }
 }

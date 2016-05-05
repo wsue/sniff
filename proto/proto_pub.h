@@ -9,6 +9,8 @@ extern uint16_t g_wShowBufOffset;
     g_wShowBufOffset += prnshowlen;    \
 }while(0)
 
+#define PRN_SHOWBUF_ERRMSG(fmt,arg...)          PRN_SHOWBUF("\e[41m" fmt "\e[0m",##arg)
+#define PRN_SHOWBUF_COLOR(color,fmt,arg...)  PRN_SHOWBUF("\e[%dm" fmt "\e[0m",(color),##arg)
 
 void    ProtoMisc_DecHex(const unsigned char* content, int contentlen);
 int     ShowTime_Init(const struct SniffConf *ptConf);

@@ -23,7 +23,8 @@
 
 #define SNIFF_OPCODE_SHOWMATCH  'm'
 #define SNIFF_OPCODE_SHOWNOMATCH 'M'
-#define SNIFF_OPCODE_DECHEX     'x'
+#define SNIFF_OPCODE_HEX        'x'
+#define SNIFF_OPCODE_HEXALL     'X'
 #define SNIFF_OPCODE_RELATIMESTAMP  't'
 #define SNIFF_OPCODE_SILENT     's'
 #define SNIFF_OPCODE_DECETH     '0'
@@ -44,6 +45,9 @@
 #define SNIFF_SHOWMODE_SILENT   2
 #define SNIFF_MATCH_MAX         64
 
+#define SNIFF_HEX_UNKNOWNPKG    1
+#define SNIFF_HEX_ALLPKG        2
+
 struct SniffConf{
     char    strEthname[32];             //  网卡名
     char    strCapFileRd[256];          //  如果不使用网卡,从哪个文件读报文
@@ -57,7 +61,7 @@ struct SniffConf{
     uint8_t         bVlanOk;            //  是否接收VLAN封装的报文
 
     uint8_t         ucRelateTimestamp;  //  显示相对第一帧的时间
-    uint8_t         ucDecHex;           //  是否以十六进制显示未知内容
+    uint8_t         ucDecHex;           //  是否以十六进制显示未知内容,1: 16进制显示吧认识的报文, 2: 16进制显示所有报文
     uint8_t         bDecEth;            //  是否显示网卡头信息
     uint8_t         ucShowmode;         //  显示模式: 0 显示匹配 1: 显示不匹配 2:不显示
     char            strMatch[SNIFF_MATCH_MAX];      //  当ucShowmode = [0|1]时,对应的参数

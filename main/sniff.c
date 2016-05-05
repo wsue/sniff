@@ -38,7 +38,8 @@ static struct option sniff_options[] = {
     {"alias",        1, 0, SNIFF_OPCODE_ALIAS},
     {"m",            1, 0, SNIFF_OPCODE_SHOWMATCH},
     {"M",            1, 0, SNIFF_OPCODE_SHOWNOMATCH},
-    {"x",            0, 0, SNIFF_OPCODE_DECHEX},
+    {"x",            0, 0, SNIFF_OPCODE_HEX},
+    {"X",            0, 0, SNIFF_OPCODE_HEXALL},
     {"ttttt",        0, 0, SNIFF_OPCODE_RELATIMESTAMP},
     {"s",            0, 0, SNIFF_OPCODE_SILENT},
     {"eth",          0, 0, SNIFF_OPCODE_DECETH},
@@ -83,7 +84,8 @@ static void help(const char *appname)
     printf("\n\t-m     - only show match record\n"
             "\t-M     - filter match record(don't show)\n"
             "\t-alias - ='name1=1.2.3.4,name2=5.6.7.8',show IP as alias\n"
-            "\t-x     - use hex to decode unknown tcp frame\n"
+            "\t-x     - use hex to decode frame\n"
+            "\t-X     - use hex to decode all frame\n"
             "\t-w     - write capture result to filename\n"
             "\t-s     - silient mode(don't decode package to screen)\n"
             "\t-ttttt - Print a delta (micro-second resolution) between current and first line on each dump line.\n"
@@ -157,9 +159,14 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
                 ptConf->ucRelateTimestamp   = 1;
                 break;
 
-            case SNIFF_OPCODE_DECHEX:
-                ptConf->ucDecHex   = 1;
+            case SNIFF_OPCODE_HEX:
+                ptConf->ucDecHex   = SNIFF_HEX_UNKNOWNPKG;
                 break;
+
+            case SNIFF_OPCODE_HEXALL:
+                ptConf->ucDecHex   = SNIFF_HEX_ALLPKG;
+                break;
+
 
             case SNIFF_OPCODE_SILENT:
                 ptConf->ucShowmode = SNIFF_SHOWMODE_SILENT;

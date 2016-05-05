@@ -1,5 +1,6 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
+#include <string.h>
 
 #include "sniff_error.h"
 #include "sniff.h"
@@ -8,17 +9,220 @@
 #include "proto_pub.h"
 #include "proto_tcpip.h"
 
+enum EDNSCntType{
+    EDNSCntType_Question,
+    EDNSCntType_ANSWER,
+    EDNSCntType_AUTHORITY,
+    EDNSCntType_ADDITIONAL,
+    EDNSCntType_MAX
+};
 
-int DecDNSInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
+struct DNSName{
+    int     len;
+    char    buf[256];
+};
+
+/*      analyse a dns name splice
+ *      return read num from content
+ *      -1  means error
+ */
+static int DecDNSNameSplice(const struct TcpIpInfo *ptTcpIp,int offset,int isreq,struct DNSName *pout)
 {
-    return 0;
+    const uint8_t *p    = ptTcpIp->content + offset;
+    uint8_t sz          = p[0];
+
+
+    if( sz > 63 ){
+        int tmp         = 0;
+        if( isreq ){
+            return -1;
+        }
+
+        if( (p[0] & 0xc0) != 0xc0 ){
+            return -1;
+        }
+
+        tmp     = ((p[0] & 0x3f) << 8 )| p[1];
+        do{
+            int ret = DecDNSNameSplice(ptTcpIp,tmp,isreq,pout);
+            if( ret < 0 ){
+                return ret;
+            }
+
+            tmp  += ret;
+        }while(0);
+
+        return 0x10002;
+    }
+
+    if(sz == 0 ){
+        if( pout->len < 2){
+            return -1;
+        }
+
+        pout->len --;
+        pout->buf[pout->len]    = 0;
+
+        return 0x10001;
+    }
+
+    if( (offset + sz +1 > ptTcpIp->contentlen) || (sz + pout->len +1>= 256 )){
+        return -1;
+    }
+
+    p++;
+    memcpy(pout->buf + pout->len,p,sz);
+    pout->len   += sz;
+    pout->buf[pout->len++]  = '.';
+
+    return sz + 1;
+}
+
+
+static int  DecDNSName(const struct TcpIpInfo *ptTcpIp,int offset,int isreq,struct DNSName *pout)
+{
+    int         ret     = 0;
+    pout->len           = 0;
+
+    do{
+        ret     = DecDNSNameSplice(ptTcpIp,offset,isreq,pout);
+        if( ret < 0 ){
+            return ret;
+        }
+
+        offset  += (ret & 0xffff);
+    }while(ret != 1 && ((ret & 0x10000) == 0 )); 
+
+
+    return offset ;  
+}
+
+static void DecDNSInfo(const struct TcpIpInfo *ptTcpIp)
+{
+    uint16_t    flag    = htons(*(uint16_t *)(ptTcpIp->content+2));
+    uint16_t    infocnt[EDNSCntType_MAX];
+
+    int         qr      = flag & 0xa000;
+    int         opcode  = (flag >> 11 ) & 0xf;
+    int         i       = 0;
+    int         sz      = 0;
+    int         offset  = 12;
+    int         isreq   = 0;
+    struct DNSName      out;
+
+    if( ptTcpIp->contentlen < 12 ){
+        PRN_SHOWBUF_ERRMSG("ERROR: wrong DNS pkg len");
+        return ;
+    }
+
+    infocnt[EDNSCntType_Question]   = htons(*(uint16_t *)(ptTcpIp->content+4));
+    infocnt[EDNSCntType_ANSWER]     = htons(*(uint16_t *)(ptTcpIp->content+6));
+    infocnt[EDNSCntType_AUTHORITY]  = htons(*(uint16_t *)(ptTcpIp->content+8));
+    infocnt[EDNSCntType_ADDITIONAL] = htons(*(uint16_t *)(ptTcpIp->content+10));
+
+    if( qr == 0 ){
+        if( infocnt[EDNSCntType_Question] == 0 ){
+            PRN_SHOWBUF_ERRMSG("ERROR: no DNS query info");
+            return ;
+        }
+
+        isreq   = 1;
+        PRN_SHOWBUF("DNS REQ op:%x ",opcode);
+    }
+    else{
+        if( !infocnt[EDNSCntType_ANSWER] ){
+            PRN_SHOWBUF_ERRMSG("ERROR: no DNS answer info");
+            return ;
+        }
+        PRN_SHOWBUF("DNS ACK op:%x ",opcode);
+    }
+
+    if( infocnt[EDNSCntType_Question] != 0 ){
+        PRN_SHOWBUF("query %d addr: <",infocnt[EDNSCntType_Question]);
+
+        for( i = 0; i < infocnt[EDNSCntType_Question] ; i ++ ){
+            offset  = DecDNSName(ptTcpIp,offset,isreq,&out);
+            if( offset < 0 ){
+                PRN_SHOWBUF_ERRMSG("ERROR: get DNS name info failed\n");
+                return ;
+            }
+
+            PRN_SHOWBUF("%s ",out.buf);
+
+            offset      += 4;
+        }
+    }
+
+    for( i = EDNSCntType_ANSWER; i < EDNSCntType_MAX ; i ++ ){
+        if( infocnt[i] != 0 ){
+            int j       = 0;
+
+            switch( i ){
+                case EDNSCntType_ANSWER:
+                    PRN_SHOWBUF("recv %d answer: <",infocnt[EDNSCntType_ANSWER]);
+                    break;
+
+                case EDNSCntType_AUTHORITY:
+                    PRN_SHOWBUF("recv %d Authority: <",infocnt[EDNSCntType_AUTHORITY]);
+                    break;
+
+                case EDNSCntType_ADDITIONAL:
+                    PRN_SHOWBUF("recv %d Additional: <",infocnt[EDNSCntType_ADDITIONAL]);
+                    break;
+
+                default:
+                    break;
+            }
+
+            for( ; j < infocnt[i]; j ++ ){
+                unsigned int type   = 0;
+                unsigned int class  = 0;
+                unsigned int datalen= 0;
+                offset      = DecDNSName(ptTcpIp,offset,isreq,&out);
+                if( offset < 0 ){
+                    PRN_SHOWBUF_ERRMSG("ERROR: get DNS name info failed\n");
+                    return ;
+                }
+
+                /*      ack type(2) ack class(2) ttl(4) */
+                type        = htons(*(uint16_t *)(ptTcpIp->content + offset));
+                class       = htons(*(uint16_t *)(ptTcpIp->content + offset+2));
+                datalen     = htons(*(uint16_t *)(ptTcpIp->content + offset+8));
+                offset      += 10;
+
+                if( datalen == 4 && type == 1 && class == 1 ){
+                    PRN_SHOWBUF("(%s:%d.%d.%d.%d) ",out.buf,ptTcpIp->content[offset],ptTcpIp->content[offset+1]
+                            ,ptTcpIp->content[offset+2],ptTcpIp->content[offset+3]
+                            );
+                }
+                else{
+                    PRN_SHOWBUF("(%s) ",out.buf);
+                }
+
+                offset      += datalen;
+                if( offset > ptTcpIp->contentlen  ){
+                    PRN_SHOWBUF_ERRMSG("DECODE DNS PKG FAIL,leng error");
+                    return ;
+                }
+            }
+        }
+    }
+
+    return ;
 }
 
 void DecUDPInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex)
 {
     if( ptTcpIp->contentlen > 0 )
     {
-        if( ucDecHex ){
+        if( ipflag == UDPPORTTYP_DNS ){
+            DecDNSInfo(ptTcpIp);
+
+            if( ucDecHex == SNIFF_HEX_ALLPKG ){
+                ProtoMisc_DecHex(ptTcpIp->content,ptTcpIp->contentlen);
+            }
+        } 
+        else if( ucDecHex ){
             ProtoMisc_DecHex(ptTcpIp->content,ptTcpIp->contentlen);
         }
     }

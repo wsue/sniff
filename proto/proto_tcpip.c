@@ -81,7 +81,25 @@ static void ParseIpAlias(const char *conf)
 
 }
 
-static inline int GetShowColorVal(const struct TcpIpInfo *ptTcpIp)
+static inline int GetProtoColorVal(uint32_t ethproto)
+{
+    uint16_t    ipflag      = (ethproto >> 16) & 0xff;
+    switch( ipflag ){
+        case UDPPORTTYP_TFTP:   return 42;
+        case TCPPORTTYP_FTPDATA:    return 44;
+        case TCPPORTTYP_FTPCMD:	return 45;
+        case TCPPORTTYP_HTTP:	return 100;
+        case TCPPORTTYP_NTP:	return 102;
+        case TCPPORTTYP_HTTPS:	return 103;
+        case TCPPORTTYP_VNC:	return 104;
+        default:        
+                                break;
+    }
+
+    return 49;
+}
+
+static inline int GetIPShowColorVal(const struct TcpIpInfo *ptTcpIp)
 {
     const static int    colorcfg[10]    = {32,33,34,35,36,  37,92,93,95,96};
     if( ptTcpIp->servport_side == 1 ){
@@ -91,7 +109,7 @@ static inline int GetShowColorVal(const struct TcpIpInfo *ptTcpIp)
         return colorcfg[ptTcpIp->srcport %10];
     }
     else{
-        return 97;
+        return 39;
     }
 }
 
@@ -239,7 +257,10 @@ static void ShowEthHead(int decmac,const struct ethhdr *eth,uint32_t ethproto)
 {
     char    cache[8]    = "";
 
-    PRN_SHOWBUF("%s%6s ",ethproto & VLAN_FLAG ? "VLAN:":"",EthProto2Str(ethproto,cache));
+    PRN_SHOWBUF_COLOR(GetProtoColorVal(ethproto),"%s%6s ",
+            ethproto & VLAN_FLAG ? "VLAN:":"",
+            EthProto2Str(ethproto,cache));
+
     if( decmac ){
         PRN_SHOWBUF("%02X%02X%02X%02X%02X%02X -> %02X%02X%02X%02X%02X%02X ",
                 eth->h_dest[0],eth->h_dest[1],eth->h_dest[2],
@@ -251,8 +272,7 @@ static void ShowEthHead(int decmac,const struct ethhdr *eth,uint32_t ethproto)
 
 static void ShowTcpIpInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
 {
-    PRN_SHOWBUF("\e[%dm%15s:%-5d => %15s:%-5d <",
-            GetShowColorVal(ptTcpIp),
+    PRN_SHOWBUF_COLOR(GetIPShowColorVal(ptTcpIp),"%15s:%-5d => %15s:%-5d <",
             ptTcpIp->srcip,ptTcpIp->srcport,
             ptTcpIp->dstip,ptTcpIp->dstport);
 
@@ -274,7 +294,7 @@ static void ShowTcpIpInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
         PRN_SHOWBUF("ip type:0x%02x(%5s)",ptTcpIp->iphdr->protocol,IPProto2Str(ptTcpIp->iphdr->protocol));
     }
 
-    PRN_SHOWBUF(">\e[0m");
+    PRN_SHOWBUF(">");
 }
 
 static int TcpipParser_Decode(void *param,const struct timeval *ts,const unsigned char* data,int len)
@@ -303,7 +323,7 @@ static int TcpipParser_Decode(void *param,const struct timeval *ts,const unsigne
         data        += (piphdr->ihl << 2);
         restlen     -= (piphdr->ihl << 2);
         if( restlen < contentlen ){
-            PRN_SHOWBUF("\e[31m###### \tWRONG FRAME, recv restlen %d < protocol content len:%d \e[0m\n",restlen,contentlen);
+            PRN_SHOWBUF_ERRMSG("###### \tWRONG FRAME, recv restlen %d < protocol content len:%d \n",restlen,contentlen);
         }
 
 
@@ -314,7 +334,7 @@ static int TcpipParser_Decode(void *param,const struct timeval *ts,const unsigne
     ShowEthHead(s_bDecEthMac,heth,ethproto);
 
     if( restlen < 0 ){
-        PRN_SHOWBUF("\e[31mWRONG ETH FRAME, eth frame len:%d \e[0m",len);
+        PRN_SHOWBUF_ERRMSG("WRONG ETH FRAME, eth frame len:%d ",len);
     }
 
     if( piphdr != NULL ){
