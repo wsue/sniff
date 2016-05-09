@@ -37,8 +37,8 @@ static int DecShowableInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
       ){
         char    buf[PER_PACKET_SIZE];
         int     len = ptTcpIp->contentlen < PER_PACKET_SIZE ? ptTcpIp->contentlen : PER_PACKET_SIZE -1;
-        strncpy(buf,ptTcpIp->content,len);
-        buf[PER_PACKET_SIZE-1]  = 0;
+        strncpy(buf,(const char *)ptTcpIp->content,len);
+        buf[len]  = 0;
         if( ipflag != TCPPORTTYP_HTTP || strstr(buf,"HTTP")){
             PRN_SHOWBUF("BODY: %s",(const char *)buf);
             return 1;
