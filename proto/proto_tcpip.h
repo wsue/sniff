@@ -61,6 +61,7 @@ struct TcpIpInfo{
 };
 
 
+void DecArpInfo(const uint8_t *data,int len,int ucDecHex);
 void DecTCPInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex);
 void DecUDPInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex);
 

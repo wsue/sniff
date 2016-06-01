@@ -105,7 +105,6 @@ static void DecDNSInfo(const struct TcpIpInfo *ptTcpIp)
     int         qr      = flag & 0xa000;
     int         opcode  = (flag >> 11 ) & 0xf;
     int         i       = 0;
-    int         sz      = 0;
     int         offset  = 12;
     int         isreq   = 0;
     struct DNSName      out;

@@ -297,6 +297,8 @@ static void ShowTcpIpInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
     PRN_SHOWBUF(">");
 }
 
+
+
 static int TcpipParser_Decode(void *param,const struct timeval *ts,const unsigned char* data,int len)
 {
     struct TcpIpInfo        tTcpIp;
@@ -339,6 +341,10 @@ static int TcpipParser_Decode(void *param,const struct timeval *ts,const unsigne
 
     if( piphdr != NULL ){
         ShowTcpIpInfo(&tTcpIp,ipflag);
+    }
+    else if( ((ethproto & 0xffff ) == ETH_P_ARP)
+            || ((ethproto & 0xffff ) == ETH_P_RARP) ){
+        DecArpInfo(data,restlen,s_bDecHex);
     }
 
     return 0;
