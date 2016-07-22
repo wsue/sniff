@@ -134,6 +134,9 @@ static uint8_t  GetTcpIpInfo( struct TcpIpInfo *ptTcpIp,const struct iphdr    *p
 
         ASSERT_PORTTYPE(69,UDPPORTTYP_TFTP);
         ASSERT_PORTTYPE(53,UDPPORTTYP_DNS);
+        ASSERT_PORTTYPE(137,UDPPORTTYP_NETBIOSNS);
+        ASSERT_PORTTYPE(138,UDPPORTTYP_NETBIOSDGM);
+        ASSERT_PORTTYPE(443,UDPPORTTYP_QUIC);
         return UDP_PORTTYP_UNKNOWN;
     }
 
@@ -215,6 +218,7 @@ static const char *EthProto2Str(uint32_t proto,char *cache)
 
 
         case UDPPORTTYP_DNS:        return "DNS";
+        case UDPPORTTYP_QUIC:       return "QUIC";
         case UDPPORTTYP_TFTP:       return "TFTP";
         case UDP_PORTTYP_UNKNOWN:   return "UDP";
         case TCP_PORTTYP_UNKNOWN:   return "TCP";
@@ -298,6 +302,19 @@ static void ShowTcpIpInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
 }
 
 
+static inline int IsProtoFilter(uint16_t ipflag)
+{
+    static int ignorelist[] = PROTO_IGNORE_LIST;
+    if( ipflag != 0 ){
+        int *p  = ignorelist;
+        for( ; *p != 0; p ++ ){
+            if( *p == ipflag )
+                return 1;
+        }
+    }
+
+    return 0;
+}
 
 static int TcpipParser_Decode(void *param,const struct timeval *ts,const unsigned char* data,int len)
 {
@@ -328,8 +345,11 @@ static int TcpipParser_Decode(void *param,const struct timeval *ts,const unsigne
             PRN_SHOWBUF_ERRMSG("###### \tWRONG FRAME, recv restlen %d < protocol content len:%d \n",restlen,contentlen);
         }
 
-
         ipflag      = GetTcpIpInfo(&tTcpIp,piphdr,data,contentlen);
+        if( IsProtoFilter(ipflag) ){
+            RESET_SHOWBUF();
+            return 0;
+        }
         ethproto    |= ipflag << 16;
     }
 
@@ -349,6 +369,7 @@ static int TcpipParser_Decode(void *param,const struct timeval *ts,const unsigne
 
     return 0;
 }
+
 
 
 

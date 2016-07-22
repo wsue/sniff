@@ -13,6 +13,9 @@
 
 #define UDPPORTTYP_TFTP     (UDP_PORTTYP_START +10) //  69  端口
 #define UDPPORTTYP_DNS      (UDP_PORTTYP_START +11) //  53  端口
+#define UDPPORTTYP_QUIC     (UDP_PORTTYP_START +12) //  443 端口
+#define UDPPORTTYP_NETBIOSNS    (UDP_PORTTYP_START +20) //  137  端口
+#define UDPPORTTYP_NETBIOSDGM   (UDP_PORTTYP_START +21) //  138  端口
 
 #define TCPPORTTYP_FTPDATA  (TCP_PORTTYP_START +1)  //  20  端口
 #define TCPPORTTYP_FTPCMD   (TCP_PORTTYP_START +2)  //  21  端口
@@ -39,9 +42,18 @@
 #define TCPPORTTYP_VNC      (TCP_PORTTYP_START +80) //  5900-5999  端口
 
 #define IS_VNC_PORT(port)   ((port) >= 5900 && (port) <= 6599 )
-
+\
 #define IP_STR_LEN      16
 
+
+#define PROTO_IGNORE_LIST   {   UDPPORTTYP_NETBIOSNS,   \
+    UDPPORTTYP_NETBIOSDGM,  \
+    TCPPORTTYP_SSH,         \
+    TCPPORTTYP_NETBIOSNS,   \
+    TCPPORTTYP_NETBIOSDGM,  \
+    TCPPORTTYP_NETBIOSSSN,  \
+    0                       \
+}   
 struct TcpIpInfo{
     char            srcip[IP_STR_LEN];
     char            dstip[IP_STR_LEN];
@@ -64,5 +76,6 @@ struct TcpIpInfo{
 void DecArpInfo(const uint8_t *data,int len,int ucDecHex);
 void DecTCPInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex);
 void DecUDPInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex);
+void UDP_DecQuicInfo(const struct TcpIpInfo *ptTcpIp);
 
 #endif

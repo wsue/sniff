@@ -16,22 +16,7 @@
 #include "proto_pub.h"
 
 
-#define RESET_SHOWBUF()         do{                     \
-    if( s_ucShowmode != SNIFF_SHOWMODE_SILENT ) {       \
-    g_wShowBufOffset    = 0;    g_strShowBuf[0] = 0;    \
-    }   \
-}while(0)
 
-
-#define DUMP_SHOWBUF()          do{ \
-    if( s_ucShowmode != SNIFF_SHOWMODE_SILENT ) { \
-        if( s_strMatchMode[0] == 0  \
-                || (s_ucShowmode == SNIFF_SHOWMODE_MATCH && strstr(g_strShowBuf,s_strMatchMode) )   \
-                || (s_ucShowmode == SNIFF_SHOWMODE_UNMATCH && !strstr(g_strShowBuf,s_strMatchMode) )){   \
-            puts(g_strShowBuf);     \
-        }                           \
-    }                               \
-}while(0)
 
 
 struct SniffParseItem{
