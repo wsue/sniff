@@ -14,14 +14,16 @@ OBJS = ./main/sniff_filter_bpf.o \
 	
 
 CC = gcc
-CFLAGS = -Wall -O2 -g -Iinc/
+#can compile 32bit version, or cross compile for other platform
+#CFLAGS = -m32 -Wall -O2 -g -Iinc/ -static
+CFLAGS = -Wall -O2 -g -Iinc/ -static
 TARGET=./sniff
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(TARGET):$(OBJS)
-	$(CC) $(OBJS) -o $(TARGET)
+	$(CC) $(CFLAGS) $(OBJS) -o $(TARGET)
 
 clean:
 	rm -f $(OBJS) $(TARGET)

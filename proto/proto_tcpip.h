@@ -38,11 +38,13 @@
 #define TCPPORTTYP_IRC      (TCP_PORTTYP_START +36) //  194  端口
 #define TCPPORTTYP_IMAP3    (TCP_PORTTYP_START +37) //  220  端口
 #define TCPPORTTYP_HTTPS    (TCP_PORTTYP_START +38) //  443  端口
+#define TCPPORTTYP_RDP      (TCP_PORTTYP_START +39) //  3389  端口
 
 #define TCPPORTTYP_VNC      (TCP_PORTTYP_START +80) //  5900-5999  端口
 
 #define IS_VNC_PORT(port)   ((port) >= 5900 && (port) <= 6599 )
-\
+#define IS_QUIC_PORT(port)   ((port == 443 || ((port) >= 5900 && (port) <= 6599 ))
+
 #define IP_STR_LEN      16
 
 
@@ -52,6 +54,7 @@
     TCPPORTTYP_NETBIOSNS,   \
     TCPPORTTYP_NETBIOSDGM,  \
     TCPPORTTYP_NETBIOSSSN,  \
+    TCPPORTTYP_RDP,         \
     0                       \
 }   
 struct TcpIpInfo{
