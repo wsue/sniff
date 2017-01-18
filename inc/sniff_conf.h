@@ -37,6 +37,7 @@
 #define SNIFF_OPCODE_REMOTE     '2'
 #define SNIFF_OPCODE_BCAST      '3'
 #define SNIFF_OPCODE_DATA       '4'
+#define SNIFF_OPCODE_TCPDATA    '5'
 
 
 
@@ -63,7 +64,9 @@ struct SniffConf{
     uint8_t         ucRelateTimestamp;  //  显示相对第一帧的时间
     uint8_t         ucDecHex;           //  是否以十六进制显示未知内容,1: 16进制显示吧认识的报文, 2: 16进制显示所有报文
     uint8_t         bDecEth;            //  是否显示网卡头信息
+    uint8_t         bOnlyTcpData;       //  只解TCP数据内容，不显示TCP头
     uint8_t         ucShowmode;         //  显示模式: 0 显示匹配 1: 显示不匹配 2:不显示
+    uint8_t         ucPad[3];
     char            strMatch[SNIFF_MATCH_MAX];      //  当ucShowmode = [0|1]时,对应的参数
     struct SFilterCtl   *ptFilter;      //  协议过滤器
 };

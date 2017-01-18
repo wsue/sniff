@@ -211,7 +211,7 @@ static void DecDNSInfo(const struct TcpIpInfo *ptTcpIp)
 }
 
 void DecQuicProto(const struct TcpIpInfo *ptTcpIp);
-void DecUDPInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex)
+void UDP_DecInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex)
 {
     if( ptTcpIp->contentlen > 0 )
     {
@@ -223,7 +223,7 @@ void DecUDPInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex)
             }
         } 
         else if( ipflag == UDPPORTTYP_QUIC ){
-            UDP_DecQuicInfo(ptTcpIp);
+            UDPQuic_DecInfo(ptTcpIp);
             if( ucDecHex == SNIFF_HEX_ALLPKG ){
                 ProtoMisc_DecHex(ptTcpIp->content,ptTcpIp->contentlen);
             }

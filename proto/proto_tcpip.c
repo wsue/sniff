@@ -34,6 +34,7 @@ struct IPAlias  s_atIPAlias[MAX_IP_ALIAS_NUM];
 
 static int  s_bDecEthMac    = 0;
 static int  s_bDecHex       = 0;
+static int  s_bOnlyTcpData  = 0;
 
 
 
@@ -298,10 +299,21 @@ static void ShowTcpIpInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
     }
 
     if( ptTcpIp->iphdr->protocol == IPPROTO_TCP ){
-        DecTCPInfo(ptTcpIp,ipflag,s_bDecHex);
+
+        if( (!s_bOnlyTcpData) || ptTcpIp->contentlen == 0 ){
+            PRN_SHOWBUF("seq: %10u ack:%10u %s%s%s%s%s ",
+                    ptTcpIp->tcphdr->seq,ptTcpIp->tcphdr->ack_seq,
+                    ptTcpIp->tcphdr->syn ? "syn ":"",
+                    ptTcpIp->tcphdr->ack ? "ack ":"",
+                    ptTcpIp->tcphdr->fin ? "fin ":"",
+                    ptTcpIp->tcphdr->rst ? "rst ":"",
+                    ptTcpIp->tcphdr->psh ? "psh ":""
+                    );
+        }
+        TCP_DecInfo(ptTcpIp,ipflag,s_bDecHex);
     }
     else if( ptTcpIp->iphdr->protocol == IPPROTO_UDP ){
-        DecUDPInfo(ptTcpIp,ipflag,s_bDecHex);
+        UDP_DecInfo(ptTcpIp,ipflag,s_bDecHex);
     }
     else{
         PRN_SHOWBUF("ip type:0x%02x(%5s)",ptTcpIp->iphdr->protocol,IPProto2Str(ptTcpIp->iphdr->protocol));
@@ -311,7 +323,7 @@ static void ShowTcpIpInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
 }
 
 
-static inline int IsProtoFilter(uint16_t ipflag)
+static inline int IsProtoFilter(uint16_t ipflag,struct TcpIpInfo *ptTcpIp)
 {
     static int ignorelist[] = PROTO_IGNORE_LIST;
     if( ipflag != 0 ){
@@ -322,6 +334,11 @@ static inline int IsProtoFilter(uint16_t ipflag)
         }
     }
 
+    if( s_bOnlyTcpData ){
+        if( ptTcpIp->contentlen == 0
+                && !(ptTcpIp->tcphdr->syn || ptTcpIp->tcphdr->fin || ptTcpIp->tcphdr->rst) )
+            return 1;
+    }
     return 0;
 }
 
@@ -355,7 +372,7 @@ static int TcpipParser_Decode(void *param,const struct timeval *ts,const unsigne
         }
 
         ipflag      = GetTcpIpInfo(&tTcpIp,piphdr,data,contentlen);
-        if( IsProtoFilter(ipflag) ){
+        if( IsProtoFilter(ipflag,&tTcpIp) ){
             RESET_SHOWBUF();
             return 0;
         }
@@ -373,7 +390,7 @@ static int TcpipParser_Decode(void *param,const struct timeval *ts,const unsigne
     }
     else if( ((ethproto & 0xffff ) == ETH_P_ARP)
             || ((ethproto & 0xffff ) == ETH_P_RARP) ){
-        DecArpInfo(data,restlen,s_bDecHex);
+        Arp_DecInfo(data,restlen,s_bDecHex);
     }
 
     return 0;
@@ -386,6 +403,7 @@ int TcpIpParser_Init(const struct SniffConf *ptConf)
 {
     s_bDecEthMac    = ptConf->bDecEth;
     s_bDecHex       = ptConf->ucDecHex;
+    s_bOnlyTcpData  = ptConf->bOnlyTcpData;
     ParseIpAlias(ptConf->strAlias);
     return SniffParser_Register(NULL,TcpipParser_Decode,NULL);
 }

@@ -69,7 +69,7 @@ static const char *ArpOp2Str(int opcode)
 }
 
 
-void DecArpInfo(const uint8_t *data,int len,int ucDecHex)
+void Arp_DecInfo(const uint8_t *data,int len,int ucDecHex)
 {
     struct ArpHead  head    = {0};
     memcpy(&head,data,8);

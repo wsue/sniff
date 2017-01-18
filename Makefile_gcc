@@ -13,7 +13,8 @@ OBJS = ./main/sniff_filter_bpf.o \
 	./proto/sniff_parser.o
 	
 
-CC = gcc
+#CC = gcc
+#CC = /opt/android/android-ndk-r13/toolchains/x86-4.9/prebuilt/linux-x86_64/bin/i686-linux-android-gcc
 #can compile 32bit version, or cross compile for other platform
 #CFLAGS = -m32 -Wall -O2 -g -Iinc/ -static
 CFLAGS = -Wall -O2 -g -Iinc/ -static

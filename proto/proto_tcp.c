@@ -21,43 +21,55 @@
 #include "proto_tcpip.h"
 
 
-
-static int DecShowableInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
+static inline int DecStringInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
 {
-    if(ipflag == TCPPORTTYP_FTPCMD || ipflag == TCPPORTTYP_TELNET 
-            || ipflag == TCPPORTTYP_SMTP || ipflag == TCPPORTTYP_HTTP 
-            || (ipflag == TCPPORTTYP_VNC 
-                && ptTcpIp->contentlen >= 4
-                && isalnum(ptTcpIp->content[0])
-                && ( memcmp(ptTcpIp->content,"RMX ",4) == 0 
-                    || memcmp(ptTcpIp->content,"RFB ",4) == 0 
-                    || memcmp(ptTcpIp->content,"CSR ",4) == 0 
-                   )
-                )
-      ){
-        char    buf[PER_PACKET_SIZE];
-        int     len = ptTcpIp->contentlen < PER_PACKET_SIZE ? ptTcpIp->contentlen : PER_PACKET_SIZE -1;
-        strncpy(buf,(const char *)ptTcpIp->content,len);
-        buf[len]  = 0;
-        if( ipflag != TCPPORTTYP_HTTP || strstr(buf,"HTTP")){
-            PRN_SHOWBUF("BODY: %s",(const char *)buf);
-            return 1;
-        }
+    char    buf[PER_PACKET_SIZE];
+    int     len = ptTcpIp->contentlen < PER_PACKET_SIZE ? ptTcpIp->contentlen : PER_PACKET_SIZE -1;
+    strncpy(buf,(const char *)ptTcpIp->content,len);
+    buf[len]  = 0;
+    if( ipflag != TCPPORTTYP_HTTP || strstr(buf,"HTTP")){
+        PRN_SHOWBUF("BODY: %s",(const char *)buf);
+        return 1;
     }
 
     return 0;
 }
 
-void DecTCPInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex)
+static inline int RMXDecInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
 {
-    PRN_SHOWBUF("seq: %10u ack:%10u %s%s%s%s%s ",
-            ptTcpIp->tcphdr->seq,ptTcpIp->tcphdr->ack_seq,
-            ptTcpIp->tcphdr->syn ? "syn ":"",
-            ptTcpIp->tcphdr->ack ? "ack ":"",
-            ptTcpIp->tcphdr->fin ? "fin ":"",
-            ptTcpIp->tcphdr->rst ? "rst ":"",
-            ptTcpIp->tcphdr->psh ? "psh ":""
-            );
+    if( ptTcpIp->contentlen < 4 ){
+        return 0;
+    }
+
+    if(  ptTcpIp->content[2] == ' ' && isalpha(ptTcpIp->content[0])){  // not "RMX " "RFB " "CSR "
+        return DecStringInfo(ptTcpIp,ipflag);
+    }
+
+    return 0;
+}
+
+
+static int DecShowableInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
+{
+    switch( ipflag ){
+        case TCPPORTTYP_FTPCMD:
+        case TCPPORTTYP_TELNET:
+        case TCPPORTTYP_SMTP:
+        case TCPPORTTYP_HTTP:
+        return DecStringInfo(ptTcpIp,ipflag);
+
+        case TCPPORTTYP_VNC:
+        return RMXDecInfo(ptTcpIp,ipflag);
+
+        default:
+        break;
+    }
+
+    return 0;
+}
+
+void TCP_DecInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex)
+{
     if( ptTcpIp->contentlen > 0 )
     {
         if( !DecShowableInfo(ptTcpIp,ipflag) ){

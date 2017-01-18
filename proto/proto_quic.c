@@ -132,7 +132,7 @@ static int DecQuichead(const uint8_t *content, int len)
     return 1 + cidlen + pnumlen;
 }
 
-void UDP_DecQuicInfo(const struct TcpIpInfo *ptTcpIp)
+void UDPQuic_DecInfo(const struct TcpIpInfo *ptTcpIp)
 {
     DecQuichead(ptTcpIp->content,ptTcpIp->contentlen);
 
