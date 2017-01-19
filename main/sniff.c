@@ -34,6 +34,7 @@ static struct option sniff_options[] = {
     {"bcast",        1, 0, SNIFF_OPCODE_BCAST},
     {"data",         1, 0, SNIFF_OPCODE_DATA},
     {"tcpdata",      0, 0, SNIFF_OPCODE_TCPDATA},
+    {"rmxdata",      0, 0, SNIFF_OPCODE_RMXDATA},
 
     //  ÏÔÊ¾¿ØÖÆ
     {"alias",        1, 0, SNIFF_OPCODE_ALIAS},
@@ -78,6 +79,7 @@ static void help(const char *appname)
             "\t-bcast - =[0|1|2] 0: only capture unicast, 1: only capture bcast, 2: capture all \n"
             "\t-data  - =[0|1|2] 0: only capture proto,   1: only capture data, 2: capture all\n"
             "\t-tcpdata  - only decode tcp data, don't decode tcp head\n"
+            "\t-rmxdata  - only decode rmx data(unknow packet will dump hex), don't decode tcp head(tcpdata option) and ping/pong\n"
             "\t-remote - capture remote control package(ignore TCP port 22/23/10000)\n"
             "special keyword: DALL - deny all except spedial, ! - except, = - allow\n"
             "NOTE: the filter param should use '' to quote,else it won't correct send\n");
@@ -193,8 +195,13 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
                 }
                 break;
 
+            case SNIFF_OPCODE_RMXDATA:
             case SNIFF_OPCODE_TCPDATA:
                 ptConf->bOnlyTcpData = 1;
+                if( c == SNIFF_OPCODE_RMXDATA ){
+                    ptConf->bRMXOnlyData = 1;
+                    ptConf->ucDecHex   = SNIFF_HEX_UNKNOWNPKG;
+                }
                 break;
 
             default:

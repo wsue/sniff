@@ -177,7 +177,7 @@ static void protocol_settype(struct SFilterCtl *filter,const char* syntax)
     if( items ){    union filter_item  *pitem  = items;         \
         while( pitem->val ){                \
             char cache[16]  = "";   \
-            printf("\t" name ":%s\n",ip2str(pitem->val,cache));   pitem ++;   \
+            printf("\t" name ":%s\n",ip2str(pitem->val,0,cache));   pitem ++;   \
         }        }  }while(0)
 
 #define DUMP_INT_FILTERITEMS(items,name)  do{   \

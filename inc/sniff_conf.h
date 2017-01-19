@@ -10,6 +10,7 @@
 #ifndef SNIFF_CONF_H_
 #define SNIFF_CONF_H_
 
+#include <stdio.h>
 #include <arpa/inet.h>
 
 //  getopt选项编号
@@ -38,6 +39,7 @@
 #define SNIFF_OPCODE_BCAST      '3'
 #define SNIFF_OPCODE_DATA       '4'
 #define SNIFF_OPCODE_TCPDATA    '5'
+#define SNIFF_OPCODE_RMXDATA    '6'
 
 
 
@@ -65,8 +67,9 @@ struct SniffConf{
     uint8_t         ucDecHex;           //  是否以十六进制显示未知内容,1: 16进制显示吧认识的报文, 2: 16进制显示所有报文
     uint8_t         bDecEth;            //  是否显示网卡头信息
     uint8_t         bOnlyTcpData;       //  只解TCP数据内容，不显示TCP头
+    uint8_t         bRMXOnlyData;       //  只解RMX数据内容，不显示PING报文
     uint8_t         ucShowmode;         //  显示模式: 0 显示匹配 1: 显示不匹配 2:不显示
-    uint8_t         ucPad[3];
+    uint8_t         ucPad[2];
     char            strMatch[SNIFF_MATCH_MAX];      //  当ucShowmode = [0|1]时,对应的参数
     struct SFilterCtl   *ptFilter;      //  协议过滤器
 };
@@ -129,9 +132,16 @@ struct SFilterCtl {
 
 int Sniff_ParseArgs(struct SniffConf *ptConf,int argc, char ** argv);
 
-static inline const char* ip2str(uint32_t ip,char *cache){
-    struct in_addr  addr    = {htonl(ip)};
-    inet_ntop(AF_INET,&addr,cache,16);
+static inline const char* ip2str(uint32_t ip,uint16_t port,char *cache){
+    ip  = htonl(ip);
+    if( port == 0 ){
+        struct in_addr  addr    = {ip};
+        inet_ntop(AF_INET,&addr,cache,16);
+    }
+    else{
+        const uint8_t* v = (const uint8_t *)&ip;
+        snprintf(cache,24,"%d.%d.%d.%d:%d",v[0],v[1],v[2],v[3],port);
+    }
     return cache;
 }
 

@@ -9,6 +9,7 @@ OBJS = ./main/sniff_filter_bpf.o \
 	./proto/proto_tcp.o \
 	./proto/proto_udp.o \
 	./proto/proto_quic.o \
+	./proto/proto_rmx.o \
 	./proto/proto_showtime.o \
 	./proto/sniff_parser.o
 	

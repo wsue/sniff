@@ -20,6 +20,7 @@
 #include "proto_pub.h"
 
 uint16_t g_wShowBufOffset;
+uint16_t g_wShowBufAvaliable;
 char     g_strShowBuf[PER_PACKET_SIZE *8];
 
 
@@ -28,6 +29,20 @@ static inline char tochar(unsigned char c)
     return  isprint(c) ? (char )c : '.';
 }
 
+
+int ProtoMisc_ShowString(const unsigned char* content, int contentlen,const char* matchtoken)
+{
+    char    buf[PER_PACKET_SIZE];
+    int     len = contentlen < PER_PACKET_SIZE ?contentlen : PER_PACKET_SIZE -1;
+    strncpy(buf,(const char*)content,len);
+    buf[len]  = 0;
+    if( !matchtoken || strstr(buf,matchtoken)){
+        PRN_SHOWBUF("BODY: %s",(const char *)buf);
+        return 1;
+    }
+
+    return 0;
+}
 
 void ProtoMisc_DecHex(const unsigned char* content, int contentlen)
 {

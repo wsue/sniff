@@ -75,7 +75,7 @@ int SnifParser_Exec(struct timeval *ts,const unsigned char* data,int len)
     int i   =0;
     struct SniffParseItem   *ptItem = s_tParsers;
 
-    RESET_SHOWBUF();
+    INIT_SHOWBUF();
     for( ; i < s_dwParserNum ; i ++,ptItem++ ) {
         if( ptItem->parser ) {
             ptItem->parser(ptItem->param,ts,data,len);

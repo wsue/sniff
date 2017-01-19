@@ -21,45 +21,19 @@
 #include "proto_tcpip.h"
 
 
-static inline int DecStringInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
-{
-    char    buf[PER_PACKET_SIZE];
-    int     len = ptTcpIp->contentlen < PER_PACKET_SIZE ? ptTcpIp->contentlen : PER_PACKET_SIZE -1;
-    strncpy(buf,(const char *)ptTcpIp->content,len);
-    buf[len]  = 0;
-    if( ipflag != TCPPORTTYP_HTTP || strstr(buf,"HTTP")){
-        PRN_SHOWBUF("BODY: %s",(const char *)buf);
-        return 1;
-    }
-
-    return 0;
-}
-
-static inline int RMXDecInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
-{
-    if( ptTcpIp->contentlen < 4 ){
-        return 0;
-    }
-
-    if(  ptTcpIp->content[2] == ' ' && isalpha(ptTcpIp->content[0])){  // not "RMX " "RFB " "CSR "
-        return DecStringInfo(ptTcpIp,ipflag);
-    }
-
-    return 0;
-}
-
-
 static int DecShowableInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
 {
     switch( ipflag ){
         case TCPPORTTYP_FTPCMD:
         case TCPPORTTYP_TELNET:
         case TCPPORTTYP_SMTP:
+        return ProtoMisc_ShowString(ptTcpIp->content,ptTcpIp->contentlen,NULL);
+
         case TCPPORTTYP_HTTP:
-        return DecStringInfo(ptTcpIp,ipflag);
+        return ProtoMisc_ShowString(ptTcpIp->content,ptTcpIp->contentlen,"HTTP");
 
         case TCPPORTTYP_VNC:
-        return RMXDecInfo(ptTcpIp,ipflag);
+        return TCPRMX_DecInfo(ptTcpIp,ipflag);
 
         default:
         break;

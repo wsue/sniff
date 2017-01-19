@@ -45,7 +45,7 @@
 #define IS_VNC_PORT(port)   ((port) >= 5900 && (port) <= 6599 )
 #define IS_QUIC_PORT(port)   ((port == 443 || ((port) >= 5900 && (port) <= 6599 ))
 
-#define IP_STR_LEN      16
+#define IP_STR_LEN      32
 
 
 #define PROTO_IGNORE_LIST   {   UDPPORTTYP_NETBIOSNS,   \
@@ -58,8 +58,8 @@
     0                       \
 }   
 struct TcpIpInfo{
-    char            srcip[IP_STR_LEN];
-    char            dstip[IP_STR_LEN];
+    char            src[IP_STR_LEN];
+    char            dst[IP_STR_LEN];
     uint16_t        srcport;
     uint16_t        dstport;
 
@@ -77,6 +77,8 @@ struct TcpIpInfo{
 
 
 void UDPQuic_DecInfo(const struct TcpIpInfo *ptTcpIp);
+int TCPRMX_SetConf(const struct SniffConf *ptConf);
+int TCPRMX_DecInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag);
 
 void Arp_DecInfo(const uint8_t *data,int len,int ucDecHex);
 void TCP_DecInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex);

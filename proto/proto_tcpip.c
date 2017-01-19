@@ -24,6 +24,8 @@
 
 struct IPAlias{
     uint32_t    ipaddr;
+    uint16_t    port;
+    uint16_t    pad;
     char        alias[IP_STR_LEN];
 };
 
@@ -38,33 +40,46 @@ static int  s_bOnlyTcpData  = 0;
 
 
 
-static inline const char* ip2alias(uint32_t ip,char *cache){
+static inline const char* ip2alias(uint32_t ip,uint16_t port,char *cache){
     int     i = 0;
     for( ; i < MAX_IP_ALIAS_NUM && s_atIPAlias[i].ipaddr != 0; i ++ ){
-        if( s_atIPAlias[i].ipaddr == ip ){
-            strncpy(cache,s_atIPAlias[i].alias,IP_STR_LEN -1);
+        if( s_atIPAlias[i].ipaddr == ip && ( s_atIPAlias[i].port == 0 ||  s_atIPAlias[i].port == port ) ){
+            if(  s_atIPAlias[i].port == 0 ){
+                snprintf(cache,IP_STR_LEN -1,"%s:%d",s_atIPAlias[i].alias,port);
+            }
+            else{
+                strncpy(cache,s_atIPAlias[i].alias,IP_STR_LEN -1);
+            }
             return cache;
         }
     }
 
-    return ip2str(ip,cache);
+    return ip2str(ip,port,cache);
 }
 
 static void ParseIpAlias(const char *conf)
 {
-    int     count   = 0;
-    char    *cache = strdup(conf);
+    int     count           = 0;
+    char    *cache          = strdup(conf);
 
     char            *lasts  = NULL;
-    char *token   = strtok_r(cache,",",&lasts);
+    char *token             = strtok_r(cache,",",&lasts);
     while( token && count < MAX_IP_ALIAS_NUM ) {
-        char    *p  = strchr(token,'=');
+        char    *p          = strchr(token,'=');
         if( p ){
+            char    *pport  = strchr(p+1,':');
             uint32_t    ip  = 0;
-            *p++    = 0;
-            ip          = inet_addr(p);
+            uint32_t    port= 0;
+            *p++            = 0;
+            if( pport ){
+                *pport++    = 0;
+                port        = strtoul(pport,NULL,0);
+            }
+
+            ip              = inet_addr(p);
             if( ip && token[0] ){
                 s_atIPAlias[count].ipaddr  = ntohl(ip);
+                s_atIPAlias[count].port    = port;
                 strncpy( s_atIPAlias[count].alias,token,IP_STR_LEN-1);
                 count ++;
             }
@@ -79,7 +94,6 @@ static void ParseIpAlias(const char *conf)
     }
 
     free(cache);
-
 }
 
 static inline int GetProtoColorVal(uint32_t ethproto)
@@ -121,22 +135,46 @@ static inline int GetIPShowColorVal(const struct TcpIpInfo *ptTcpIp)
     }}while(0)
 static uint8_t  GetTcpIpInfo( struct TcpIpInfo *ptTcpIp,const struct iphdr    *piphdr,const unsigned char *content,int contentlen)
 {
+    int istcpip = 0;
+
     memset(ptTcpIp,0,sizeof(*ptTcpIp));
     ptTcpIp->iphdr              = piphdr;
-    ip2alias(htonl(piphdr->saddr),ptTcpIp->srcip);
-    ip2alias(htonl(piphdr->daddr),ptTcpIp->dstip);
 
     if( piphdr->protocol == IPPROTO_UDP ){
+        istcpip                 = 1;
+
         ptTcpIp->udphdr         = (struct udphdr *)(content);
-        ptTcpIp->srcport        = htons(ptTcpIp->udphdr->source); 
-        ptTcpIp->dstport        = htons(ptTcpIp->udphdr->dest); 
         ptTcpIp->content        = content + sizeof(struct udphdr);
         ptTcpIp->contentlen     = contentlen - sizeof(struct udphdr);
+
+        ptTcpIp->srcport        = htons(ptTcpIp->udphdr->source); 
+        ptTcpIp->dstport        = htons(ptTcpIp->udphdr->dest); 
+    }
+    else if( piphdr->protocol == IPPROTO_TCP ){
+        istcpip                 = 1;
+
+        ptTcpIp->tcphdr         = (struct tcphdr *)(content);
+        ptTcpIp->content        = content + ptTcpIp->tcphdr->doff * 4;
+        ptTcpIp->contentlen     = contentlen - ptTcpIp->tcphdr->doff * 4;
+
+        ptTcpIp->srcport        = htons(ptTcpIp->tcphdr->source); 
+        ptTcpIp->dstport        = htons(ptTcpIp->tcphdr->dest);
+    }
+
+    ip2alias(htonl(piphdr->saddr),ptTcpIp->srcport,ptTcpIp->src);
+    ip2alias(htonl(piphdr->daddr),ptTcpIp->dstport,ptTcpIp->dst);
+
+    if( !istcpip ){
+        return 0;
+    }
+
+    if( piphdr->protocol == IPPROTO_UDP ){
 
         ASSERT_PORTTYPE(69,UDPPORTTYP_TFTP);
         ASSERT_PORTTYPE(53,UDPPORTTYP_DNS);
         ASSERT_PORTTYPE(137,UDPPORTTYP_NETBIOSNS);
         ASSERT_PORTTYPE(138,UDPPORTTYP_NETBIOSDGM);
+
         if( IS_VNC_PORT(ptTcpIp->srcport) ){
             ptTcpIp->servport_side  = 1;
             return UDPPORTTYP_QUIC;
@@ -148,14 +186,6 @@ static uint8_t  GetTcpIpInfo( struct TcpIpInfo *ptTcpIp,const struct iphdr    *p
         return UDP_PORTTYP_UNKNOWN;
     }
 
-    if( piphdr->protocol != IPPROTO_TCP )
-        return 0;
-
-    ptTcpIp->tcphdr             = (struct tcphdr *)(content);
-    ptTcpIp->srcport            = htons(ptTcpIp->tcphdr->source); 
-    ptTcpIp->dstport            = htons(ptTcpIp->tcphdr->dest); 
-    ptTcpIp->content            = content + ptTcpIp->tcphdr->doff * 4;
-    ptTcpIp->contentlen         = contentlen - ptTcpIp->tcphdr->doff * 4;
 
     ASSERT_PORTTYPE(20,TCPPORTTYP_FTPDATA);
     ASSERT_PORTTYPE(21,TCPPORTTYP_FTPCMD);
@@ -180,7 +210,7 @@ static uint8_t  GetTcpIpInfo( struct TcpIpInfo *ptTcpIp,const struct iphdr    *p
     ASSERT_PORTTYPE(220,TCPPORTTYP_IMAP3);
     ASSERT_PORTTYPE(443,TCPPORTTYP_HTTPS);
     ASSERT_PORTTYPE(3389,TCPPORTTYP_RDP);
-    
+
     if( IS_VNC_PORT(ptTcpIp->srcport) ){
         ptTcpIp->servport_side  = 1;
         return TCPPORTTYP_VNC;
@@ -286,9 +316,8 @@ static void ShowEthHead(int decmac,const struct ethhdr *eth,uint32_t ethproto)
 
 static void ShowTcpIpInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
 {
-    PRN_SHOWBUF_COLOR(GetIPShowColorVal(ptTcpIp),"%15s:%-5d => %15s:%-5d <",
-            ptTcpIp->srcip,ptTcpIp->srcport,
-            ptTcpIp->dstip,ptTcpIp->dstport);
+    PRN_SHOWBUF_COLOR(GetIPShowColorVal(ptTcpIp),"%15s => %15s <",
+            ptTcpIp->src,ptTcpIp->dst);
 
     PRN_SHOWBUF("data sz:%4d ",ptTcpIp->contentlen);
 
@@ -373,7 +402,7 @@ static int TcpipParser_Decode(void *param,const struct timeval *ts,const unsigne
 
         ipflag      = GetTcpIpInfo(&tTcpIp,piphdr,data,contentlen);
         if( IsProtoFilter(ipflag,&tTcpIp) ){
-            RESET_SHOWBUF();
+            DROP_SHOWBUF();
             return 0;
         }
         ethproto    |= ipflag << 16;
@@ -404,7 +433,10 @@ int TcpIpParser_Init(const struct SniffConf *ptConf)
     s_bDecEthMac    = ptConf->bDecEth;
     s_bDecHex       = ptConf->ucDecHex;
     s_bOnlyTcpData  = ptConf->bOnlyTcpData;
+
     ParseIpAlias(ptConf->strAlias);
+    TCPRMX_SetConf(ptConf);
+
     return SniffParser_Register(NULL,TcpipParser_Decode,NULL);
 }
 
