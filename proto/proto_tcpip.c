@@ -363,7 +363,7 @@ static inline int IsProtoFilter(uint16_t ipflag,struct TcpIpInfo *ptTcpIp)
         }
     }
 
-    if( s_bOnlyTcpData ){
+    if( s_bOnlyTcpData && ptTcpIp->tcphdr ){
         if( ptTcpIp->contentlen == 0
                 && !(ptTcpIp->tcphdr->syn || ptTcpIp->tcphdr->fin || ptTcpIp->tcphdr->rst) )
             return 1;
