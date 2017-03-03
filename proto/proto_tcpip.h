@@ -79,6 +79,7 @@ struct TcpIpInfo{
 void UDPQuic_DecInfo(const struct TcpIpInfo *ptTcpIp);
 int TCPRMX_SetConf(const struct SniffConf *ptConf);
 int TCPRMX_DecInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag);
+int TCPSSL_DecInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag);
 
 void Arp_DecInfo(const uint8_t *data,int len,int ucDecHex);
 void TCP_DecInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex);

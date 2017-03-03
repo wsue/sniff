@@ -32,6 +32,9 @@ static int DecShowableInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
         case TCPPORTTYP_HTTP:
         return ProtoMisc_ShowString(ptTcpIp->content,ptTcpIp->contentlen,"HTTP");
 
+        case TCPPORTTYP_HTTPS:
+        return TCPSSL_DecInfo(ptTcpIp,ipflag);
+
         case TCPPORTTYP_VNC:
         return TCPRMX_DecInfo(ptTcpIp,ipflag);
 
