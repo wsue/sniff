@@ -37,7 +37,7 @@ struct IPAlias  s_atIPAlias[MAX_IP_ALIAS_NUM];
 static int  s_bDecEthMac    = 0;
 static int  s_bDecHex       = 0;
 static int  s_bOnlyTcpData  = 0;
-
+static int  s_iVncPort      = 0;
 
 
 static inline const char* ip2alias(uint32_t ip,uint16_t port,char *cache){
@@ -175,14 +175,6 @@ static uint8_t  GetTcpIpInfo( struct TcpIpInfo *ptTcpIp,const struct iphdr    *p
         ASSERT_PORTTYPE(137,UDPPORTTYP_NETBIOSNS);
         ASSERT_PORTTYPE(138,UDPPORTTYP_NETBIOSDGM);
 
-        if( IS_VNC_PORT(ptTcpIp->srcport) ){
-            ptTcpIp->servport_side  = 1;
-            return UDPPORTTYP_QUIC;
-        }
-        if( IS_VNC_PORT(ptTcpIp->dstport) ){
-            ptTcpIp->servport_side  = 2;
-            return UDPPORTTYP_QUIC;
-        }
         return UDP_PORTTYP_UNKNOWN;
     }
 
@@ -211,11 +203,11 @@ static uint8_t  GetTcpIpInfo( struct TcpIpInfo *ptTcpIp,const struct iphdr    *p
     ASSERT_PORTTYPE(443,TCPPORTTYP_HTTPS);
     ASSERT_PORTTYPE(3389,TCPPORTTYP_RDP);
 
-    if( IS_VNC_PORT(ptTcpIp->srcport) ){
+    if( CFG_IS_VNCPORT(ptTcpIp->srcport,s_iVncPort) ){
         ptTcpIp->servport_side  = 1;
         return TCPPORTTYP_VNC;
     }
-    if( IS_VNC_PORT(ptTcpIp->dstport) ){
+    if( CFG_IS_VNCPORT(ptTcpIp->dstport,s_iVncPort) ){
         ptTcpIp->servport_side  = 2;
         return TCPPORTTYP_VNC;
     }
@@ -433,6 +425,7 @@ int TcpIpParser_Init(const struct SniffConf *ptConf)
     s_bDecEthMac    = ptConf->bDecEth;
     s_bDecHex       = ptConf->ucDecHex;
     s_bOnlyTcpData  = ptConf->bOnlyTcpData;
+    s_iVncPort      = ptConf->wVncPortStart;
 
     ParseIpAlias(ptConf->strAlias);
     TCPRMX_SetConf(ptConf);

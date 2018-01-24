@@ -42,9 +42,6 @@
 
 #define TCPPORTTYP_VNC      (TCP_PORTTYP_START +80) //  5900-5999  ¶Ë¿Ú
 
-#define IS_VNC_PORT(port)   ((port) >= 5900 && (port) <= 6599 )
-#define IS_QUIC_PORT(port)   ((port == 443 || ((port) >= 5900 && (port) <= 6599 ))
-
 #define IP_STR_LEN      32
 
 

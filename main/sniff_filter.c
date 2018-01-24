@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <ctype.h>
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
 #include <linux/filter.h>
@@ -225,6 +226,10 @@ static int check_filter_conf(struct SFilterCtl *filter)
         filter->remote  = 0;
     }
 
+    if( filter->vnc >= FILTER_LIMITMODE_TRUE && filter->vnc <= FILTER_LIMITMODE_ALL ){
+        filter->protoallow[ETCPProto]   = 1;
+    }
+
     printf("PROTOCOL: ALLOW  %s%s%s%s%s%s%s%s Remote:%d\n",
             filter->protoallow[EIPProto]?"IP ":"",
             filter->protoallow[ETCPProto]?"TCP ":"",
@@ -376,6 +381,23 @@ static int is_ip_filter(const struct SFilterCtl *filter,
                 unsigned int    sport       = htons(ptcphdr->source); 
                 unsigned int    dport       = htons(ptcphdr->dest); 
 
+                if( filter->vnc ){
+                    int isvnc = CFG_IS_VNCPORT(sport,filter->wVncPortStart)
+                        || CFG_IS_VNCPORT(dport,filter->wVncPortStart);
+                    switch( filter->vnc ){
+                        case FILTER_LIMITMODE_TRUE:
+                            if( isvnc )
+                                return 0;
+                            break;
+
+                        case FILTER_LIMITMODE_ALL:
+                            return isvnc ? 0:1;
+                            break;
+                        default:
+                            break;
+                    }
+                    return 0;
+                }
                 if( is_filter(&filter->tcp,&sport,&dport,comp_uint) ){
                     DBG_ECHO("ignore tcp port %d->%d \n",sport,dport);
                     return 1;
@@ -871,6 +893,22 @@ int     SFilter_Analyse(struct SFilterCtl *filter,char opcode,const char *optarg
                 return -1;
             }
             return 0;
+            break;
+
+        case SNIFF_OPCODE_VNCOK:
+            val     = strtoul(optarg,0,0);
+            if( val >= FILTER_LIMITMODE_FALSE && val <= FILTER_LIMITMODE_ALL ){
+                filter->vnc = val;
+                if( filter->wVncPortStart == 0 )
+                    filter->wVncPortStart   = CFG_DEF_VNCPORT_START;
+                return 0;
+            }
+                
+            return -1;
+            break;
+
+        case SNIFF_OPCODE_VNCPORT:
+            filter->wVncPortStart   = strtoul(optarg,NULL,0);
             break;
 
         default:

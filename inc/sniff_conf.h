@@ -40,7 +40,8 @@
 #define SNIFF_OPCODE_DATA       '4'
 #define SNIFF_OPCODE_TCPDATA    '5'
 #define SNIFF_OPCODE_RMXDATA    '6'
-
+#define SNIFF_OPCODE_VNCPORT    '7'
+#define SNIFF_OPCODE_VNCOK      '8'
 
 
 #define SNIFF_SHOWMODE_MATCH    0
@@ -50,6 +51,9 @@
 
 #define SNIFF_HEX_UNKNOWNPKG    1
 #define SNIFF_HEX_ALLPKG        2
+
+#define CFG_DEF_VNCPORT_START   5901
+#define CFG_IS_VNCPORT(port,portstart)    ((port) >= portstart && (port) <= (portstart + 1024) )
 
 struct SniffConf{
     char    strEthname[32];             //  网卡名
@@ -69,7 +73,7 @@ struct SniffConf{
     uint8_t         bOnlyTcpData;       //  只解TCP数据内容，不显示TCP头
     uint8_t         bRMXOnlyData;       //  只解RMX数据内容，不显示PING报文
     uint8_t         ucShowmode;         //  显示模式: 0 显示匹配 1: 显示不匹配 2:不显示
-    uint8_t         ucPad[2];
+    uint16_t        wVncPortStart;      //   VNC port range
     char            strMatch[SNIFF_MATCH_MAX];      //  当ucShowmode = [0|1]时,对应的参数
     struct SFilterCtl   *ptFilter;      //  协议过滤器
 };
@@ -124,7 +128,9 @@ struct SFilterCtl {
     struct filter_ctl       udp;
 
     /*  其它过滤控制            */
-    int                     remote;       /*  是否忽略远程控制报文(TCP 22/23/10000端口) */
+    uint8_t                 remote;       /*  是否忽略远程控制报文(TCP 22/23/10000端口) */
+    uint8_t                 vnc;          /*   是否接收所有VNC报文 */
+    uint16_t                wVncPortStart;      //   VNC port range
     enum LimitType          bcastok;      /*  mac过摅机制：0:不接收广播和组播,1只接收广播和组播,2:接收所有    */
     enum LimitType          dataok;       /*  协议过摅机制：0:不接收数据,1只接收数据,2:接收所有    */
 };
