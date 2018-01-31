@@ -199,10 +199,6 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
                 if( ret != 0 ){
                     PRN_MSG("parse arg %c %s fail:%d, unsupport\n",c,optarg,ret);
                 }
-                else{
-                    if(c == SNIFF_OPCODE_VNCOK || c == SNIFF_OPCODE_VNCPORT )
-                        ptConf->wVncPortStart   = ptConf->ptFilter->wVncPortStart;
-                }
                 break;
 
             case SNIFF_OPCODE_RMXDATA:
@@ -229,6 +225,8 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
     if( ret != 0 ){
         goto end;
     }
+
+    ptConf->wVncPortStart   = ptConf->ptFilter->wVncPortStart;
 
     //  检查参数是否符合运行条件
     //  ##  检查输入参数

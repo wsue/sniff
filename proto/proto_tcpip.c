@@ -22,6 +22,10 @@
 
 #define MAX_IP_ALIAS_NUM    32
 
+
+#define IS_QUIC_PORT(port)   ((port == 443 || ((port) >= s_iVncPort && (port) <= (s_iVncPort + 1024) ))
+
+
 struct IPAlias{
     uint32_t    ipaddr;
     uint16_t    port;

@@ -813,6 +813,7 @@ struct SFilterCtl * SFilter_Init(void)
         memset(filter->protoallow,1,sizeof(filter->protoallow));
         filter->bcastok       = FILTER_LIMITMODE_ALL;
         filter->dataok        = FILTER_LIMITMODE_ALL;
+        filter->wVncPortStart = CFG_DEF_VNCPORT_START;
         return filter;
     }
     else{
@@ -899,8 +900,6 @@ int     SFilter_Analyse(struct SFilterCtl *filter,char opcode,const char *optarg
             val     = strtoul(optarg,0,0);
             if( val >= FILTER_LIMITMODE_FALSE && val <= FILTER_LIMITMODE_ALL ){
                 filter->vnc = val;
-                if( filter->wVncPortStart == 0 )
-                    filter->wVncPortStart   = CFG_DEF_VNCPORT_START;
                 return 0;
             }
                 
