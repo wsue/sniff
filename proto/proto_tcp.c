@@ -45,19 +45,19 @@ static int DecShowableInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrame
     return 0;
 }
 
-void TCP_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,uint16_t ipflag,int ucDecHex)
+void TCP_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,uint16_t ipflag,enum EOptMode ucDecHex)
 {
     if( pEthFrame->datalen > 0 )
     {
         if( !DecShowableInfo(ptTcpIp,pEthFrame,ipflag) ){
-            if( ipflag != TCPPORTTYP_HTTPS && ipflag != TCPPORTTYP_SSH && ucDecHex ){
+            if( ipflag != TCPPORTTYP_HTTPS && ipflag != TCPPORTTYP_SSH && (ucDecHex != EOptModeDef )){
                 ProtoMisc_DecHex(pEthFrame->data,pEthFrame->datalen);
 
                 return ;
             }
         }
 
-        if( ucDecHex == SNIFF_HEX_ALLPKG ){
+        if( ucDecHex == EOptModeFull ){
                 ProtoMisc_DecHex(pEthFrame->data,pEthFrame->datalen);
         }
     }

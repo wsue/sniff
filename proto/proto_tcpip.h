@@ -45,27 +45,19 @@
 #define IP_STR_LEN      32
 
 
-#define PROTO_IGNORE_LIST   {   UDPPORTTYP_NETBIOSNS,   \
-    UDPPORTTYP_NETBIOSDGM,  \
-    TCPPORTTYP_SSH,         \
-    TCPPORTTYP_NETBIOSNS,   \
-    TCPPORTTYP_NETBIOSDGM,  \
-    TCPPORTTYP_NETBIOSSSN,  \
-    TCPPORTTYP_RDP,         \
-    0                       \
-}   
+
 struct TcpIpInfo{
     char            src[IP_STR_LEN];
     char            dst[IP_STR_LEN];
 };
 
 void UDPQuic_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame);
-int TCPRMX_SetConf(const struct SniffConf *ptConf);
+int TCPRMX_SetParam(char opcode,const char *optarg);
 int TCPRMX_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,uint16_t ipflag);
 int TCPSSL_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,uint16_t ipflag);
 
-void Arp_DecInfo(const uint8_t *data,int len,int ucDecHex);
-void TCP_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,uint16_t ipflag,int ucDecHex);
-void UDP_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,uint16_t ipflag,int ucDecHex);
+void Arp_DecInfo(const uint8_t *data,int len,enum EOptMode ucDecHex);
+void TCP_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,uint16_t ipflag,enum EOptMode ucDecHex);
+void UDP_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,uint16_t ipflag,enum EOptMode ucDecHex);
 
 #endif

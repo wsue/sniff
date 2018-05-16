@@ -39,7 +39,7 @@ static struct option sniff_options[] = {
     {"remote",       0, 0, SNIFF_OPCODE_REMOTE},
     {"bcast",        1, 0, SNIFF_OPCODE_BCAST},
     {"data",         1, 0, SNIFF_OPCODE_DATA},
-    {"tcpdata",      0, 0, SNIFF_OPCODE_TCPDATA},
+    {"tcphead",      1, 0, SNIFF_OPCODE_TCPHEAD},
     {"rmxdata",      0, 0, SNIFF_OPCODE_RMXDATA},
     {"vnc",          1, 0, SNIFF_OPCODE_VNCOK},
     {"vncstart",     1, 0, SNIFF_OPCODE_VNCPORT},
@@ -88,7 +88,7 @@ static void help(const char *appname)
             "\t         AND  only deny match (all condition) item\n"
             "\t-bcast - =[0|1|2] 0: capture all, 1: only capture unicast, 2: only capture bcast\n"
             "\t-data  - =[0|1|2] 0: capture all, 1: only capture proto,   1: only capture data\n"
-            "\t-tcpdata  - only decode tcp data, don't decode tcp head\n"
+            "\t-tcphead  - [0|1|2] 0 don't show tcp head and zero data, 1: show zero data, 2: show tcp head and zero data\n"
             "\t-rmxdata  - only decode rmx data(unknow packet will dump hex), don't decode tcp head(tcpdata option) and ping/pong\n"
             "\t-vnc      - support all VNC port? (0: capture all, 1: skip all vnc, 2: only capture vnc) \n"
             "\t-vncstart=x - VNC port start from x\n"
@@ -166,30 +166,22 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
                 strncpy(ptConf->strMatch,optarg,sizeof(ptConf->strMatch)-1);
                 break;
 
-            case SNIFF_OPCODE_ALIAS:
-                memset(ptConf->strAlias,0,sizeof(ptConf->strAlias));
-                strncpy(ptConf->strAlias,optarg,sizeof(ptConf->strAlias)-1);
-                break;
 
             case SNIFF_OPCODE_RELATIMESTAMP:
                 ptConf->ucRelateTimestamp   = 1;
                 break;
 
+            case SNIFF_OPCODE_ALIAS:
             case SNIFF_OPCODE_HEX:
-                ptConf->ucDecHex   = SNIFF_HEX_UNKNOWNPKG;
-                break;
-
             case SNIFF_OPCODE_HEXALL:
-                ptConf->ucDecHex   = SNIFF_HEX_ALLPKG;
+            case SNIFF_OPCODE_DECETH:
+            case SNIFF_OPCODE_RMXDATA:
+            case SNIFF_OPCODE_TCPHEAD:
+                TcpipParser_SetParam(c,optarg);
                 break;
-
 
             case SNIFF_OPCODE_SILENT:
                 ptConf->ucShowmode = SNIFF_SHOWMODE_SILENT;
-                break;
-
-            case SNIFF_OPCODE_DECETH:
-                ptConf->bDecEth    = TRUE;
                 break;
 
             case SNIFF_OPCODE_VNCPORT:
@@ -202,15 +194,6 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
                 ret = SFilter_Analyse(c,optarg);
                 if( ret != 0 ){
                     PRN_MSG("parse arg %c %s fail:%d, unsupport\n",c,optarg,ret);
-                }
-                break;
-
-            case SNIFF_OPCODE_RMXDATA:
-            case SNIFF_OPCODE_TCPDATA:
-                ptConf->bOnlyTcpData = 1;
-                if( c == SNIFF_OPCODE_RMXDATA ){
-                    ptConf->bRMXOnlyData = 1;
-                    ptConf->ucDecHex   = SNIFF_HEX_UNKNOWNPKG;
                 }
                 break;
 
@@ -247,8 +230,6 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
             ret = ERRCODE_SNIFF_PARAMERR;
             goto end;
         }
-
-        ptConf->bDecEth = FALSE;
     }
 
     //  ##  检查过滤参数

@@ -69,7 +69,7 @@ static const char *ArpOp2Str(int opcode)
 }
 
 
-void Arp_DecInfo(const uint8_t *data,int len,int ucDecHex)
+void Arp_DecInfo(const uint8_t *data,int len,enum EOptMode ucDecHex)
 {
     struct ArpHead  head    = {0};
     memcpy(&head,data,8);
@@ -95,7 +95,7 @@ void Arp_DecInfo(const uint8_t *data,int len,int ucDecHex)
             head.tpa[0],head.tpa[1],head.tpa[2],head.tpa[3]
             );
 
-    if( ucDecHex == SNIFF_HEX_ALLPKG ){
+    if( ucDecHex == EOptModeFull ){
         ProtoMisc_DecHex(data,len);
     }
 }

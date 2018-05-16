@@ -22,7 +22,7 @@
 
 #undef SUPPORT_RMX_PROTOCOL
 
-#ifndef SUPPORT_RMX_PROTOCOL
+#ifdef SUPPORT_RMX_PROTOCOL
 #include "proto_rmx.h"
 #endif
 
@@ -71,10 +71,15 @@ static inline const char* RMXGetChannelName(uint8_t id,const uint8_t* body)
 }
 
 
-int TCPRMX_SetConf(const struct SniffConf *ptConf)
+int TCPRMX_SetParam(char opcode,const char *optarg)
 {
-    if( ptConf->bRMXOnlyData ){
-        sOnlyRMXData    = 1;
+    switch( opcode ){
+        case SNIFF_OPCODE_RMXDATA:
+            sOnlyRMXData    = 1;
+            break;
+
+        default:
+            break;
     }
 
     return 0;

@@ -36,23 +36,26 @@ struct IPAlias{
 
 
 
-struct IPAlias  s_atIPAlias[MAX_IP_ALIAS_NUM];
 
+struct TcpIpShowMode{
+    int             bDecEthMac;
+    enum EOptMode   DecHex;
+    enum EOptMode   ProtoDecMode;
+    struct IPAlias  atIPAlias[MAX_IP_ALIAS_NUM];
+};
 
-static int  s_bDecEthMac    = 0;
-static int  s_bDecHex       = 0;
-static int  s_bOnlyTcpData  = 0;
+static struct TcpIpShowMode sTcpShowMode;
 
 
 static inline const char* ip2alias(uint32_t ip,uint16_t port,char *cache){
     int     i = 0;
-    for( ; i < MAX_IP_ALIAS_NUM && s_atIPAlias[i].ipaddr != 0; i ++ ){
-        if( s_atIPAlias[i].ipaddr == ip && ( s_atIPAlias[i].port == 0 ||  s_atIPAlias[i].port == port ) ){
-            if(  s_atIPAlias[i].port == 0 ){
-                snprintf(cache,IP_STR_LEN -1,"%s:%d",s_atIPAlias[i].alias,port);
+    for( ; i < MAX_IP_ALIAS_NUM && sTcpShowMode.atIPAlias[i].ipaddr != 0; i ++ ){
+        if( sTcpShowMode.atIPAlias[i].ipaddr == ip && ( sTcpShowMode.atIPAlias[i].port == 0 ||  sTcpShowMode.atIPAlias[i].port == port ) ){
+            if(  sTcpShowMode.atIPAlias[i].port == 0 ){
+                snprintf(cache,IP_STR_LEN -1,"%s:%d",sTcpShowMode.atIPAlias[i].alias,port);
             }
             else{
-                strncpy(cache,s_atIPAlias[i].alias,IP_STR_LEN -1);
+                strncpy(cache,sTcpShowMode.atIPAlias[i].alias,IP_STR_LEN -1);
             }
             return cache;
         }
@@ -82,9 +85,9 @@ static void ParseIpAlias(const char *conf)
 
             ip              = inet_addr(p);
             if( ip && token[0] ){
-                s_atIPAlias[count].ipaddr  = ntohl(ip);
-                s_atIPAlias[count].port    = port;
-                strncpy( s_atIPAlias[count].alias,token,IP_STR_LEN-1);
+                sTcpShowMode.atIPAlias[count].ipaddr  = ntohl(ip);
+                sTcpShowMode.atIPAlias[count].port    = port;
+                strncpy( sTcpShowMode.atIPAlias[count].alias,token,IP_STR_LEN-1);
                 count ++;
             }
             else{
@@ -288,7 +291,7 @@ static void ShowTcpIpInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameI
 
     if( pFrame->hip->protocol == IPPROTO_TCP ){
 
-        if( (!s_bOnlyTcpData) || pFrame->datalen == 0 ){
+        if( sTcpShowMode.ProtoDecMode == EOptModeFull ){
             PRN_SHOWBUF("seq: %10u ack:%10u %s%s%s%s%s ",
                     pFrame->htcp->seq,pFrame->htcp->ack_seq,
                     pFrame->htcp->syn ? "syn ":"",
@@ -298,10 +301,10 @@ static void ShowTcpIpInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameI
                     pFrame->htcp->psh ? "psh ":""
                     );
         }
-        TCP_DecInfo(ptTcpIp,pFrame,ipflag,s_bDecHex);
+        TCP_DecInfo(ptTcpIp,pFrame,ipflag,sTcpShowMode.DecHex);
     }
     else if( pFrame->hip->protocol == IPPROTO_UDP ){
-        UDP_DecInfo(ptTcpIp,pFrame,ipflag,s_bDecHex);
+        UDP_DecInfo(ptTcpIp,pFrame,ipflag,sTcpShowMode.DecHex);
     }
     else{
         PRN_SHOWBUF("ip type:0x%02x(%5s)",pFrame->hip->protocol,IPProto2Str(pFrame->hip->protocol));
@@ -311,23 +314,14 @@ static void ShowTcpIpInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameI
 }
 
 
-static inline int IsProtoFilter(uint16_t ipflag,struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame)
+static inline int WillShowFrame(const struct EthFrameInfo *pEthFrame)
 {
-    static int ignorelist[] = PROTO_IGNORE_LIST;
-    if( ipflag != 0 ){
-        int *p  = ignorelist;
-        for( ; *p != 0; p ++ ){
-            if( *p == ipflag )
-                return 1;
-        }
+    if( pEthFrame->hip->protocol == IPPROTO_TCP ){
+        int important = (pEthFrame->htcp->syn || pEthFrame->htcp->fin || pEthFrame->htcp->rst)? 1:0;
+        if( sTcpShowMode.ProtoDecMode == EOptModeDef )
+            return (  important || pEthFrame->datalen > 0 )? TRUE:FALSE;
     }
-
-    if( s_bOnlyTcpData && pEthFrame->hip->protocol == IPPROTO_TCP ){
-        if( pEthFrame->datalen == 0
-                && !(pEthFrame->htcp->syn || pEthFrame->htcp->fin || pEthFrame->htcp->rst) )
-            return 1;
-    }
-    return 0;
+    return TRUE;
 }
 
 
@@ -418,38 +412,70 @@ static int TcpipParser_Decode(void *param,const struct EthFrameInfo *pEthFrame)
          ethproto |= VLAN_FLAG;
 
     if( (ethproto & 0xffff) == ETH_P_IP ){
-        ipflag      = GetTcpIpInfo(&tTcpIp,pEthFrame);
-        if( IsProtoFilter(ipflag,&tTcpIp,pEthFrame) ){
+        if( !WillShowFrame(pEthFrame) ){
             DROP_SHOWBUF();
             return 0;
         }
+
+        ipflag      = GetTcpIpInfo(&tTcpIp,pEthFrame);
+
         ethproto    |= ipflag << 16;
     }
 
-    ShowEthHead(s_bDecEthMac,pEthFrame->heth,ethproto);
+    ShowEthHead(sTcpShowMode.bDecEthMac,pEthFrame->heth,ethproto);
 
     if( (ethproto & 0xffff) == ETH_P_IP )
         ShowTcpIpInfo(&tTcpIp,pEthFrame,ipflag);
     else if( ((ethproto & 0xffff ) == ETH_P_ARP)
             || ((ethproto & 0xffff ) == ETH_P_RARP) ){
-        Arp_DecInfo(pEthFrame->data,pEthFrame->datalen,s_bDecHex);
+        Arp_DecInfo(pEthFrame->data,pEthFrame->datalen,sTcpShowMode.DecHex);
     }
 
     return 0;
 }
 
 
-
-
-int TcpIpParser_Init(const struct SniffConf *ptConf)
+void TcpipParser_SetParam(char opcode,const char *optarg)
 {
-    s_bDecEthMac    = ptConf->bDecEth;
-    s_bDecHex       = ptConf->ucDecHex;
-    s_bOnlyTcpData  = ptConf->bOnlyTcpData;
+    switch(opcode){
+        case SNIFF_OPCODE_ALIAS:
+            ParseIpAlias(optarg);
+            break;
 
-    ParseIpAlias(ptConf->strAlias);
-    TCPRMX_SetConf(ptConf);
+        case SNIFF_OPCODE_HEX:
+            sTcpShowMode.DecHex     = EOptModeLimit;
+            break;
 
+        case SNIFF_OPCODE_HEXALL:
+            sTcpShowMode.DecHex     = EOptModeFull;
+            break;
+
+        case SNIFF_OPCODE_DECETH:
+            sTcpShowMode.bDecEthMac = TRUE;
+            break;
+
+        case SNIFF_OPCODE_RMXDATA:
+            sTcpShowMode.ProtoDecMode = EOptModeDef;
+            sTcpShowMode.DecHex     = EOptModeLimit;
+            TCPRMX_SetParam(opcode,optarg);
+            break;
+
+        case SNIFF_OPCODE_TCPHEAD:
+            sTcpShowMode.ProtoDecMode   = strtoul(optarg,0,0);
+            if( sTcpShowMode.ProtoDecMode < EOptModeDef )
+                sTcpShowMode.ProtoDecMode = EOptModeDef;
+            else if( sTcpShowMode.ProtoDecMode > EOptModeFull )
+                sTcpShowMode.ProtoDecMode = EOptModeFull;
+            break;
+
+        default:
+            break;
+    }
+}
+
+
+int TcpIpParser_Init()
+{
     return SniffParser_Register(NULL,TcpipParser_Decode,NULL);
 }
 

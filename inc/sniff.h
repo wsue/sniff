@@ -21,6 +21,15 @@
 #define FALSE                   0
 #endif
 
+#define UDP_IGNORE_LIST         {137, 138,0}
+#define TCP_IGNORE_LIST         {137,138,139,3389,0}
+
+   
+enum EOptMode{
+    EOptModeDef = 0,
+    EOptModeLimit,
+    EOptModeFull
+};
 
 /*  接收到的帧信息
  */
@@ -82,6 +91,7 @@ int SFilter_GetBPFInfo(uint16_t *remote,uint16_t *ethframe,uint32_t *ipaddr,uint
 
 int SFilter_IsDeny(struct EthFrameInfo *ptEthFrame);
 
+void TcpipParser_SetParam(char opcode,const char *optarg);
 void TcpipParser_ResetFrame(struct EthFrameInfo *ptFrame);
 int TcpipParser_SetFrame(struct EthFrameInfo *ptframe);
 

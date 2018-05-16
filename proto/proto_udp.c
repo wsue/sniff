@@ -211,24 +211,24 @@ static void DecDNSInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo
 }
 
 void DecQuicProto(const struct TcpIpInfo *ptTcpIp);
-void UDP_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,uint16_t ipflag,int ucDecHex)
+void UDP_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,uint16_t ipflag,enum EOptMode ucDecHex)
 {
     if( pEthFrame->datalen > 0 )
     {
         if( ipflag == UDPPORTTYP_DNS ){
             DecDNSInfo(ptTcpIp,pEthFrame);
 
-            if( ucDecHex == SNIFF_HEX_ALLPKG ){
+            if( ucDecHex == EOptModeFull ){
                 ProtoMisc_DecHex(pEthFrame->data,pEthFrame->datalen);
             }
         } 
         else if( ipflag == UDPPORTTYP_QUIC ){
             UDPQuic_DecInfo(ptTcpIp,pEthFrame);
-            if( ucDecHex == SNIFF_HEX_ALLPKG ){
+            if( ucDecHex == EOptModeFull ){
                 ProtoMisc_DecHex(pEthFrame->data,pEthFrame->datalen);
             }
         }
-        else if( ucDecHex ){
+        else if( ucDecHex != EOptModeDef ){
             ProtoMisc_DecHex(pEthFrame->data,pEthFrame->datalen);
         }
     }

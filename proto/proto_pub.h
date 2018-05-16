@@ -33,7 +33,7 @@ extern uint16_t g_wShowBufAvaliable;
 int     ProtoMisc_ShowString(const unsigned char* content, int contentlen,const char* matchtoken);
 void    ProtoMisc_DecHex(const unsigned char* content, int contentlen);
 int     ShowTime_Init(const struct SniffConf *ptConf);
-int     TcpIpParser_Init(const struct SniffConf *ptConf);
+int     TcpIpParser_Init();
 
 
 #endif

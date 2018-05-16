@@ -34,19 +34,12 @@
 #define FILTER_TCPTOKEN_NAME            "TCP"
 #define FILTER_UDPTOKEN_NAME            "UDP"
 
-enum EFilterSetStatus{
-    EFilterNotSet   = 0,
-    EFilterSet      = 1,
-    EFilterAll      = 2
-};
-
-
 
 
 struct FilterInfo{
     const char*     name;
     int             global;
-    enum EFilterSetStatus status;
+    enum EOptMode   status;
     void            (*init_callback)(struct FilterInfo *filter);
     void            (*release_callback)(struct FilterInfo *filter);
 
@@ -109,32 +102,32 @@ enum EFilterItemIndex{
 };
 
 static struct FilterInfo   sFilters[] = {
-    {FILTER_NAME_TIME,      1,  EFilterNotSet,  NULL,   NULL,     
+    {FILTER_NAME_TIME,      1,  EOptModeDef,  NULL,   NULL,     
         timefilter_set,     timefilter_validate,        timefilter_check},
-    {FILTER_NAME_PROTO,     1,  EFilterNotSet,  NULL,   NULL,
+    {FILTER_NAME_PROTO,     1,  EOptModeDef,  NULL,   NULL,
         protofilter_set, protofilter_validate,          protofilter_check},
-    {FILTER_NAME_MAC,       1,  EFilterNotSet,  NULL,   macfilter_release,     
+    {FILTER_NAME_MAC,       1,  EOptModeDef,  NULL,   macfilter_release,     
         macfilter_set,      macfilter_validate,         macfilter_check},
-    {"MAP",     1,  EFilterNotSet,  NULL,               NULL,
+    {"MAP",     1,  EOptModeDef,  NULL,               NULL,
         mapfilter_set,      mapfilter_validate,         mapfilter_check},
-    {"IP",      0,  EFilterNotSet,  NULL,               ipfilter_release,
+    {"IP",      0,  EOptModeDef,  NULL,               ipfilter_release,
         ipfilter_set,     ipfilter_validate,            ipfilter_check},
-    {"TCP",     0,   EFilterNotSet, NULL,               tcpfilter_release,
+    {"TCP",     0,   EOptModeDef, NULL,               tcpfilter_release,
         tcpfilter_set,     tcpfilter_validate,          tcpfilter_check},
-    {"UDP",     0,  EFilterNotSet,  NULL,               udpfilter_release,
+    {"UDP",     0,  EOptModeDef,  NULL,               udpfilter_release,
         udpfilter_set,     udpfilter_validate,          udpfilter_check},
-    {NULL,      0,  EFilterNotSet,  NULL,               NULL,
+    {NULL,      0,  EOptModeDef,  NULL,               NULL,
         NULL,               NULL,                   NULL}
 };
 
 static void deffilter_init(struct FilterInfo *filter)
 {
-    filter->status  = EFilterNotSet;
+    filter->status  = EOptModeDef;
 }
 
 static void deffilter_release(struct FilterInfo *filter)
 {
-    filter->status  = EFilterNotSet;
+    filter->status  = EOptModeDef;
 }
 
 
@@ -163,7 +156,7 @@ static int filter_validate()
 {
     struct FilterInfo   *pfilter = sFilters;
     for( ; pfilter->name ; pfilter ++ ){
-        if( pfilter->status == EFilterSet && pfilter->validate_callback ){
+        if( pfilter->status == EOptModeLimit && pfilter->validate_callback ){
             int ret = pfilter->validate_callback(pfilter);
             if( ret != 0 )
                 return ret;
@@ -191,9 +184,9 @@ void SFilter_Release()
 {
     struct FilterInfo   *pfilter = sFilters;
     for( ; pfilter->name ; pfilter ++ ){
-        if( pfilter->release_callback  && pfilter->status != EFilterNotSet){
+        if( pfilter->release_callback  && pfilter->status != EOptModeDef){
             pfilter->release_callback(pfilter);
-            pfilter->status = EFilterNotSet;
+            pfilter->status = EOptModeDef;
         }
     }
 
@@ -317,7 +310,7 @@ int     SFilter_Validate(unsigned short *pframetype)
 
     struct FilterInfo   *pfilter = sFilters;
     for( ; pfilter->name ; pfilter ++ ){
-        if( pfilter->status == EFilterSet && pfilter->validate_callback){
+        if( pfilter->status == EOptModeLimit && pfilter->validate_callback){
             int ret = pfilter->validate_callback(pfilter);
             if( ret != 0 )
                 return ret;
@@ -352,7 +345,7 @@ int SFilter_IsDeny(struct EthFrameInfo *pEthFrame)
     int ret = 0;
     struct FilterInfo   *pfilter = sFilters;
     for( ; pfilter->name && pfilter->global ; pfilter ++ ){
-        if( pfilter->status == EFilterSet && pfilter->check_callback ){
+        if( pfilter->status == EOptModeLimit && pfilter->check_callback ){
             ret = pfilter->check_callback(pfilter,pEthFrame);
             if( ret != 0 )
                 return ret;
@@ -362,11 +355,11 @@ int SFilter_IsDeny(struct EthFrameInfo *pEthFrame)
     if( pEthFrame->hip ){
         pfilter = &sFilters[EFilterItemIp];
         switch( pfilter->status ){
-            case EFilterAll:
+            case EOptModeFull:
                 ret =  ERRCODE_SNIFF_IGNORE;
                 break;
 
-            case EFilterSet:
+            case EOptModeLimit:
                 if( pfilter->check_callback )
                     ret = pfilter->check_callback(pfilter,pEthFrame);
                 break;
@@ -379,9 +372,21 @@ int SFilter_IsDeny(struct EthFrameInfo *pEthFrame)
             return ret;
 
         if( pEthFrame->hip->protocol == IPPROTO_TCP && pEthFrame->htcp ){
+            static const int tcpignorelist[] = TCP_IGNORE_LIST;
+            const int *p = tcpignorelist;
+            for( ; *p != 0 && *p != pEthFrame->mapport; p ++) ;
+            if( *p == pEthFrame->mapport )
+                return ERRCODE_SNIFF_IGNORE;
+
             pfilter = &sFilters[EFilterItemTcp];
         }
         else if( pEthFrame->hip->protocol == IPPROTO_UDP && pEthFrame->hudp ){
+            static const int udpignorelist[] = UDP_IGNORE_LIST;
+            const int *p = udpignorelist;
+            for( ; *p != 0 && *p != pEthFrame->mapport; p ++) ;
+            if( *p == pEthFrame->mapport )
+                return ERRCODE_SNIFF_IGNORE;
+
             pfilter = &sFilters[EFilterItemUdp];
         }
     }
@@ -392,11 +397,11 @@ int SFilter_IsDeny(struct EthFrameInfo *pEthFrame)
     }
 
     switch( pfilter->status ){
-        case EFilterAll:
+        case EOptModeFull:
             ret =  ERRCODE_SNIFF_IGNORE;
             break;
 
-        case EFilterSet:
+        case EOptModeLimit:
             if( pfilter->check_callback )
                 ret = pfilter->check_callback(pfilter,pEthFrame);
             break;
@@ -923,13 +928,13 @@ static int timefilter_set(struct FilterInfo *filter,const char* token,const char
     }
     sFilterTime.startsec   = str2time(cache,1);
     sFilterTime.endsec     = str2time(pend,0xffffffff);
-    filter->status  = EFilterSet;
+    filter->status  = EOptModeLimit;
     return 0;
 }
 
 static int timefilter_validate(struct FilterInfo *filter)
 {
-    if( filter->status != EFilterNotSet ){
+    if( filter->status != EOptModeDef ){
         time_t      startsec     = sFilterTime.startsec;
         struct  tm  starttime;
         time_t      endsec     = sFilterTime.endsec;
@@ -970,13 +975,13 @@ static int timefilter_check(struct FilterInfo *filter,const struct EthFrameInfo 
  *      protocol filter
  */
 struct SFilterCtl_Protocol{
-    enum LimitType          dataok;
-    enum LimitType          vnc;
+    enum EOptMode           dataok;
+    enum EOptMode           vnc;
     int                     remote;
     char                    protodeny[ELastProto]; /* 充许的协议 */
 };
 
-static struct SFilterCtl_Protocol   sFilterProto = {FILTER_LIMITMODE_NONE,FILTER_LIMITMODE_NONE};
+static struct SFilterCtl_Protocol   sFilterProto = {EOptModeDef,EOptModeDef};
 
 
 
@@ -1000,10 +1005,10 @@ static int protofilter_set(struct FilterInfo *filter,const char* token,const cha
 
     if( !strcmp(token,FILTER_PROTOTOKEN_DATAOK) ){
         int val     = strtoul(optarg,0,0);
-        if( val >= FILTER_LIMITMODE_NONE && val <= FILTER_LIMITMODE_TRUE ){
+        if( val >= EOptModeDef && val <= EOptModeFull ){
             sFilterProto.dataok   = val;
-            if( sFilterProto.dataok != FILTER_LIMITMODE_NONE )
-                filter->status  = EFilterSet;
+            if( sFilterProto.dataok != EOptModeDef )
+                filter->status  = EOptModeLimit;
 
             PRN_MSG("dataok: %d\n",val);
         }
@@ -1013,14 +1018,14 @@ static int protofilter_set(struct FilterInfo *filter,const char* token,const cha
 
     if( !strcmp(token,FILTER_PROTOTOKEN_VNCMODE) ){
         int val     = strtoul(optarg,0,0);
-        if( val < FILTER_LIMITMODE_NONE || val > FILTER_LIMITMODE_TRUE ){
+        if( val < EOptModeDef || val > EOptModeFull ){
             return ERRCODE_SNIFF_PARAMERR;
         }
 
         sFilterProto.vnc   = val;
-        if( sFilterProto.vnc != FILTER_LIMITMODE_NONE ){
-            filter->status  = EFilterSet;
-            if( sFilterProto.vnc == FILTER_LIMITMODE_TRUE ){
+        if( sFilterProto.vnc != EOptModeDef ){
+            filter->status  = EOptModeLimit;
+            if( sFilterProto.vnc == EOptModeFull ){
                 memset(sFilterProto.protodeny,1,sizeof(sFilterProto.protodeny ));
                 sFilterProto.protodeny[EIPProto]    = 0;
                 sFilterProto.protodeny[ETCPProto]   = 0;
@@ -1034,8 +1039,8 @@ static int protofilter_set(struct FilterInfo *filter,const char* token,const cha
 
     if( !strcmp(token,FILTER_PROTOTOKEN_REMOTE) ){
         sFilterProto.remote     = 1;
-        if( sFilterProto.vnc != FILTER_LIMITMODE_NONE ){
-            filter->status  = EFilterSet;
+        if( sFilterProto.vnc != EOptModeDef ){
+            filter->status  = EOptModeLimit;
         }
         return 0;
     }
@@ -1149,37 +1154,37 @@ static int protofilter_set(struct FilterInfo *filter,const char* token,const cha
     struct FilterInfo* ptcpfilter = filter_get(EFilterItemTcp);
     struct FilterInfo* pudpfilter = filter_get(EFilterItemUdp);
     if( sFilterProto.protodeny[EIPProto] == 1 ){
-        pipfilter->status  = EFilterAll;
-        ptcpfilter->status = EFilterAll;
-        pudpfilter->status = EFilterAll;
+        pipfilter->status  = EOptModeFull;
+        ptcpfilter->status = EOptModeFull;
+        pudpfilter->status = EOptModeFull;
     }
     else{
         if( sFilterProto.protodeny[ETCPProto] == 1 )
-            ptcpfilter->status = EFilterAll;
+            ptcpfilter->status = EOptModeFull;
         if( sFilterProto.protodeny[EUDPProto] == 1 )
-            pudpfilter->status = EFilterAll;
+            pudpfilter->status = EOptModeFull;
     }
 
-    filter->status  = EFilterSet;
+    filter->status  = EOptModeLimit;
     return 0;
 }
 
-const char* dataok2str(enum LimitType type)
+const char* dataok2str(enum EOptMode type)
 {
     switch( type ){
-        case FILTER_LIMITMODE_FALSE:    return "Proto";
-        case FILTER_LIMITMODE_TRUE:     return "Data";
+        case EOptModeLimit:    return "Proto";
+        case EOptModeFull:     return "Data";
         default:                        break;
     }
 
     return "";
 }
 
-const char* vnc2str(enum LimitType type)
+const char* vnc2str(enum EOptMode type)
 {
     switch( type ){
-        case FILTER_LIMITMODE_FALSE:    return "NoVNC";
-        case FILTER_LIMITMODE_TRUE:     return "OnlyVNC";
+        case EOptModeLimit:    return "NoVNC";
+        case EOptModeFull:     return "OnlyVNC";
         default:                        break;
     }
 
@@ -1192,22 +1197,22 @@ static int protofilter_validate(struct FilterInfo *filter)
     struct FilterInfo* pipfilter = filter_get(EFilterItemIp);
     struct FilterInfo* ptcpfilter = filter_get(EFilterItemTcp);
     struct FilterInfo* pudpfilter = filter_get(EFilterItemUdp);
-    if( sFilterProto.vnc == FILTER_LIMITMODE_TRUE ){
-        pudpfilter->status      = EFilterAll;
+    if( sFilterProto.vnc == EOptModeFull ){
+        pudpfilter->status      = EOptModeFull;
         sFilterProto.protodeny[EIPProto]   = 0;
         sFilterProto.protodeny[ETCPProto]  = 0;
         sFilterProto.protodeny[EUDPProto]  = 1;
     }
 
-    if( pipfilter->status  == EFilterAll ){
+    if( pipfilter->status  == EOptModeFull ){
         sFilterProto.protodeny[EIPProto]   = 1;
         sFilterProto.protodeny[ETCPProto]  = 1;
         sFilterProto.protodeny[EUDPProto]  = 1;
     }
     else{
-        if( ptcpfilter->status == EFilterAll )
+        if( ptcpfilter->status == EOptModeFull )
             sFilterProto.protodeny[ETCPProto]  = 1;
-        if( pudpfilter->status == EFilterAll )
+        if( pudpfilter->status == EOptModeFull )
             sFilterProto.protodeny[EUDPProto]  = 1;
     }
 
@@ -1380,12 +1385,12 @@ static int protofilter_check(struct FilterInfo *filter,const struct EthFrameInfo
 
     int isvnc   = (ethframe->hip->protocol == IPPROTO_TCP) && (CFG_IS_VNCPORT(ethframe->mapport));
     switch( sFilterProto.vnc ){
-        case FILTER_LIMITMODE_FALSE:
+        case EOptModeLimit:
             if( isvnc )
                 ret = ERRCODE_SNIFF_IGNORE;
             break;
 
-        case FILTER_LIMITMODE_TRUE:
+        case EOptModeFull:
             if( !isvnc )
                 ret = ERRCODE_SNIFF_IGNORE;
             break;
@@ -1398,12 +1403,12 @@ static int protofilter_check(struct FilterInfo *filter,const struct EthFrameInfo
         return ret;
     }
     switch( sFilterProto.dataok ){
-        case FILTER_LIMITMODE_FALSE:
+        case EOptModeLimit:
             if( ethframe->datalen > 0 )
                 ret = ERRCODE_SNIFF_IGNORE;
             break;
 
-        case FILTER_LIMITMODE_TRUE:
+        case EOptModeFull:
             if( ethframe->datalen == 0 )
                 ret = ERRCODE_SNIFF_IGNORE;
             break;
@@ -1423,7 +1428,7 @@ static void filterctl_release(struct FilterInfo *filter,struct filter_ctl *ctl)
 {
     if( filter ) {
         FREE_FILTER_ITEM(ctl);
-        filter->status  = EFilterNotSet;
+        filter->status  = EOptModeDef;
     }
 }
 
@@ -1431,11 +1436,11 @@ static void filterctl_release(struct FilterInfo *filter,struct filter_ctl *ctl)
  *
  */
 struct SFilterCtl_Mac {
-    enum LimitType          bcastok;
+    enum EOptMode           bcastok;
     struct filter_ctl       mac;
 };
 
-static struct SFilterCtl_Mac    sFilterMac  = {FILTER_LIMITMODE_NONE};
+static struct SFilterCtl_Mac    sFilterMac  = {EOptModeDef};
 /*
  *  token:  FILTER_MACTOKEN_BCASTOK         bcast mac
  */
@@ -1450,10 +1455,10 @@ static int macfilter_set(struct FilterInfo *filter,const char* token,const char*
 
     if( !strcmp(FILTER_MACTOKEN_BCASTOK,token) ){
         int val     = strtoul(param,0,0);
-        if( val >= FILTER_LIMITMODE_NONE && val <= FILTER_LIMITMODE_TRUE ){
+        if( val >= EOptModeDef && val <= EOptModeFull ){
             sFilterMac.bcastok  = val;
-            if( sFilterMac.bcastok != FILTER_LIMITMODE_NONE )
-                filter->status  = EFilterSet;
+            if( sFilterMac.bcastok != EOptModeDef )
+                filter->status  = EOptModeLimit;
             return 0;
         }
 
@@ -1466,7 +1471,7 @@ static int macfilter_set(struct FilterInfo *filter,const char* token,const char*
         free(cache);
 
         if( ret == 0 )
-            filter->status    = EFilterSet;
+            filter->status    = EOptModeLimit;
         return ret;
     }
 
@@ -1492,11 +1497,11 @@ static int macfilter_validate(struct FilterInfo *filter)
 
 static int macfilter_check(struct FilterInfo *filter,const struct EthFrameInfo *pEthFrame)
 {
-    if( sFilterMac.bcastok != FILTER_LIMITMODE_NONE ){
+    if( sFilterMac.bcastok != EOptModeDef ){
         int isbc        = (memcmp(pEthFrame->heth->h_dest,"\xff\xff\xff\xff\xff\xff",6) == 0 )
             || (memcmp(pEthFrame->heth->h_dest,"\x1\x0\x5e",3) == 0) ;
-        if( (isbc && ( sFilterMac.bcastok == FILTER_LIMITMODE_FALSE ))
-                || ((!isbc) && ( sFilterMac.bcastok == FILTER_LIMITMODE_TRUE ) ) ){
+        if( (isbc && ( sFilterMac.bcastok == EOptModeLimit ))
+                || ((!isbc) && ( sFilterMac.bcastok == EOptModeFull ) ) ){
             DBG_ECHO("ignore broadcast\n");
             return ERRCODE_SNIFF_IGNORE;
         }
@@ -1515,7 +1520,7 @@ static int macfilter_check(struct FilterInfo *filter,const struct EthFrameInfo *
 static void macfilter_release(struct FilterInfo *filter)
 {
     filterctl_release(filter,&sFilterMac.mac);
-    sFilterMac.bcastok  = FILTER_LIMITMODE_NONE;
+    sFilterMac.bcastok  = EOptModeDef;
 
     return ;
 }
@@ -1533,7 +1538,7 @@ static int mapfilter_set(struct FilterInfo *filter,const char* token,const char*
         int val     = strtoul(param,0,0);
         if( val > 0 && val != CFG_DEF_VNCPORT_START){
             sFilterMap.vncportstart = val;
-            filter->status  = EFilterSet;
+            filter->status  = EOptModeLimit;
         }
     }
     return 0;
@@ -1574,7 +1579,7 @@ static struct SFilterCtl_IP    sFilterIp;
 
 static int ipfilter_set(struct FilterInfo *filter,const char* token,const char* param)
 {
-    if(filter->status == EFilterAll )
+    if(filter->status == EOptModeFull )
         return 0;
 
     if( !token || !param )
@@ -1590,7 +1595,7 @@ static int ipfilter_set(struct FilterInfo *filter,const char* token,const char* 
         free(cache);
 
         if( ret == 0 )
-            filter->status  = EFilterSet;
+            filter->status  = EOptModeLimit;
         return ret;
     }
 
@@ -1640,7 +1645,7 @@ static struct SFilterCtl_Tcp    sFilterTcp;
 
 static int portfilter_set( struct FilterInfo *filter,struct filter_ctl *info,const char* token,const char* param)
 {
-    if(filter->status == EFilterAll )
+    if(filter->status == EOptModeFull )
         return 0;
 
     if( !token || !param )
@@ -1656,7 +1661,7 @@ static int portfilter_set( struct FilterInfo *filter,struct filter_ctl *info,con
         free(cache);
 
         if( ret == 0 )
-            filter->status  = EFilterSet;
+            filter->status  = EOptModeLimit;
         return ret;
     }
 
@@ -1682,7 +1687,7 @@ static int portfilter_validate(const char* name,
 
 static int tcpfilter_set(struct FilterInfo *filter,const char* token,const char* param)
 {
-    if(filter->status == EFilterAll )
+    if(filter->status == EOptModeFull )
         return 0;
 
     return portfilter_set(filter,&sFilterTcp.port,token,param);
