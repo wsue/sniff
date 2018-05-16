@@ -993,7 +993,7 @@ static int timefilter_set(struct FilterInfo *filter,const char* token,const char
         return 0;
     }
 
-    if( param[0] == '-' && !strstr(param,':')){
+    if( param[0] == '-' && !strchr(param,':')){
         sFilterTime.endsec      = time(NULL);
         sFilterTime.startsec    = sFilterTime.endsec - atoi(param+1);
         filter->status  = EOptModeLimit;
@@ -1765,8 +1765,8 @@ static int portfilter_validate(const char* name,
 
     PRN_MSG("%s FILTER: %s :\n",name,
             filtermode2str(info->mode));
-    DUMP_IP_FILTERITEMS(info->excsrc,"SRC PORT");
-    DUMP_IP_FILTERITEMS(info->excdst,"DST PORT");
+    DUMP_INT_FILTERITEMS(info->excsrc,"SRC PORT");
+    DUMP_INT_FILTERITEMS(info->excdst,"DST PORT");
     return 0;
 }
 
