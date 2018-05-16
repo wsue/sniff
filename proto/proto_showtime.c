@@ -26,21 +26,21 @@ static struct timeval   s_tvstart;
 static int              s_tvstartinit   = 0;
 
 
-static int TimeInfo_Decode(void *param,const struct timeval *ts,const unsigned char* data,int len)
+static int TimeInfo_Decode(void *param,const struct EthFrameInfo *pEthFrame)
 {
     if( s_relatimemode ){
         if( !s_tvstartinit ){
-           s_tvstart        = *ts;
+           s_tvstart        = *(pEthFrame->ts);
            s_tvstartinit    = 1;
         }
-        unsigned long           diff        = (ts->tv_sec - s_tvstart.tv_sec)* 1000 + (ts->tv_usec - s_tvstart.tv_usec)/1000;
+        unsigned long           diff        = (pEthFrame->ts->tv_sec - s_tvstart.tv_sec)* 1000 + (pEthFrame->ts->tv_usec - s_tvstart.tv_usec)/1000;
         PRN_SHOWBUF("%ld.%03ld ",diff/1000,diff%1000);
     }
     else {
-        time_t  when    = ts->tv_sec;
+        time_t  when    = pEthFrame->ts->tv_sec;
         struct  tm  day = *localtime(&when);
         PRN_SHOWBUF("%02d %02d:%02d:%02d-%03ld ",
-                day.tm_mday,day.tm_hour,day.tm_min,day.tm_sec,ts->tv_usec/1000);
+                day.tm_mday,day.tm_hour,day.tm_min,day.tm_sec,pEthFrame->ts->tv_usec/1000);
     }
 
     return 0;

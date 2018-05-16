@@ -98,18 +98,18 @@ static FILE* SniffPcap_Open(const char* fname,int isread)
 }
 
 
-static int SniffPcap_Write(FILE *fp,const struct timeval *ts,const unsigned char* data,int len)
+static int SniffPcap_Write(FILE *fp,const struct EthFrameInfo *pEthFrame)
 {
     if( fp ) {
         struct pcap_sf_pkthdr sf_hdr;
 
-        sf_hdr.ts.sec       = ts->tv_sec;
-        sf_hdr.ts.usec      = ts->tv_usec;
-        sf_hdr.caplen       = len;
-        sf_hdr.len          = len;
+        sf_hdr.ts.sec       = pEthFrame->ts->tv_sec;
+        sf_hdr.ts.usec      = pEthFrame->ts->tv_usec;
+        sf_hdr.caplen       = pEthFrame->framesize;
+        sf_hdr.len          = pEthFrame->framesize;
         /* XXX we should check the return status */
         (void)fwrite(&sf_hdr, sizeof(sf_hdr), 1, fp);
-        (void)fwrite(data, len, 1, fp);
+        (void)fwrite(pEthFrame->heth, pEthFrame->framesize, 1, fp);
     }
 
     return 0;
@@ -204,8 +204,8 @@ int PCapDev_Init(struct SniffDevCtl *ptCtl,const char *capfilename)
     ptCapCtl->fp        = fp;
     ptCtl->priv         = ptCapCtl;
 
-    ptCtl->tRcvFrame.buf = ptCapCtl->buf;
-    ptCtl->tRcvFrame.ts  = &ptCapCtl->ts;
+    ptCtl->tEthFrame.heth = (struct ethhdr *)ptCapCtl->buf;
+    ptCtl->tEthFrame.ts  = &ptCapCtl->ts;
 
     ptCtl->readframe    = PCapReadCallback;
     ptCtl->release      = PCapRelease;

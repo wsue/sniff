@@ -58,8 +58,7 @@ int SnifParser_Init(const struct SniffConf *ptConf)
     }
 
     if( ret == 0 
-            && ptConf->ucShowmode != SNIFF_SHOWMODE_SILENT 
-            && SFilter_IsAllowTcpIp(ptConf->ptFilter) ){
+            && ptConf->ucShowmode != SNIFF_SHOWMODE_SILENT ){
         ret = TcpIpParser_Init(ptConf);
         if( ret != 0 ){
             PRN_MSG("create tcp filter fail,ret:%d\n",ret);
@@ -70,21 +69,30 @@ int SnifParser_Init(const struct SniffConf *ptConf)
 }
 
 
-int SnifParser_Exec(struct timeval *ts,const unsigned char* data,int len)
+int SnifParser_Exec(struct EthFrameInfo         *pEthFrame)
 {
     int i   =0;
     struct SniffParseItem   *ptItem = s_tParsers;
 
-    INIT_SHOWBUF();
     for( ; i < s_dwParserNum ; i ++,ptItem++ ) {
         if( ptItem->parser ) {
-            ptItem->parser(ptItem->param,ts,data,len);
+            ptItem->parser(ptItem->param,pEthFrame);
         }
     }
             
-    DUMP_SHOWBUF();
 
     return 0;
+}
+
+
+void SnifParser_ResetShow()
+{
+    INIT_SHOWBUF();
+}
+
+void SnifParser_Show()
+{
+    DUMP_SHOWBUF();
 }
 
 int SniffParser_Register(SNIFFPARSER_RELEASE_CALLBACK release,SNIFFPARSER_PARSE_CALLBACK parser, void *param)

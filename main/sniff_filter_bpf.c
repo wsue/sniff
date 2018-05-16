@@ -349,162 +349,61 @@ static struct sock_filter bpf_tcp_1ip[]    = {
 
 
 
-
-
-static inline int filter_is_limitone(int protoallow, const struct filter_ctl *pctl)
+int SFilter_setBPF(int sd,int frametype)
 {
-    if( !protoallow )
-        return 0;
+    uint16_t remote     = 0;
+    uint16_t ethframe   = ETH_P_ALL;
+    uint32_t ipaddr     = 0;
+    uint16_t udpport    = 0;
+    uint16_t tcpport    = 0;
 
-    if( !FILTER_MODE_IS_ALLOW(pctl->mode))
-        return -1;
+    int ret = 0;
+    int mode = SFilter_GetBPFInfo(&remote,&ethframe,&ipaddr,&udpport,&tcpport);
 
-    if( pctl->excsrc 
-            && ( pctl->excsrc[0].val == 0 
-                || pctl->excsrc[1].val != 0) ){
-        return -1;
+    if( tcpport != 0 ){
+        FILTER_ONLYTCP_1PORT(ret,tcpport);
+        PRN_MSG("filter set tcp filter port %d ret %d\n",tcpport,ret);
+        return ret;
     }
 
-    if( pctl->excdst 
-            && ( pctl->excdst[0].val == 0 
-                || pctl->excdst[1].val != 0 ) ){
-        return -1;
+    if( udpport != 0 ){
+        FILTER_ONLYUDP_1PORT(ret,udpport);
+        PRN_MSG("filter set udp filter port %d ret %d\n",udpport,ret);
+        return ret;
     }
 
-    //  到这里,只允许源
-    if( !pctl->excsrc )
-        return pctl->excdst[0].val;
-
-    if( !pctl->excdst )
-        return pctl->excsrc[0].val;
-
-    if( pctl->excdst[0].val == pctl->excsrc[0].val )
-        return pctl->excsrc[0].val;
-
-    return -1;
-}
-
-/*  获取 允许的udp唯一端口号
- *  如果没有返回 0
- *  如果有多个返回 -1
- *  如果只有一个返回端口号
- */
-static int get_udp_limit_1port(const struct SFilterCtl *filter)
-{
-    return filter_is_limitone(filter->protoallow[EUDPProto],&filter->udp);
-}
-
-static int get_tcp_limit_1port(const struct SFilterCtl *filter)
-{
-    return filter_is_limitone(filter->protoallow[ETCPProto],&filter->tcp);
-}
-
-static uint32_t get_ip_limit_1addr(const struct SFilterCtl *filter)
-{
-    return (uint32_t)filter_is_limitone(filter->protoallow[EIPProto],&filter->ip);
-}
-
-/*  判断过滤方式
- *  返回:
- *      -1  只过滤远程端口
- *      1   过滤ip
- *      2   过滤udp端口
- *      3   过滤tcp端口
- */
-static int getlimittype(int allowudpport,int allowtcpport,uint32_t allowipaddr)
-{
-    //  先看是否可以通过 端口过滤,这样可以减少大量报文
-    if( allowudpport != -1 && allowtcpport != -1 ){
-        if( allowudpport == 0 )
-            return 3;
-
-        if( allowtcpport == 0 )
-            return  2;
-
-        if( allowtcpport == allowudpport )
-            return 2;
-    }
-
-    //  如果不行,那判断是否可以通过 ip过滤
-    if( allowipaddr > 0 && allowipaddr != (uint32_t) -1)
-        return 1;
-
-    return -1;
-}
-
-int SFilter_setBPF(const struct SFilterCtl *filter,int sd,int frametype)
-{
-    int allowudpport    = get_udp_limit_1port(filter);
-    int allowtcpport    = get_tcp_limit_1port(filter);
-    uint32_t allowipaddr= get_ip_limit_1addr(filter);
-    int limittype       = getlimittype(allowudpport,allowtcpport,allowipaddr);
-    int ret             = 0;
-    int i               = 0;
-    int protocnt        = 0;
-
-    if( filter->remote ){
-        return 0;
-    }
-
-    //  判断是否只允许 tcp/udp单协议
-    for( ; i < ELastProto ; i ++ ){
-        protocnt        += filter->protoallow[i];
-    }
-
-    if( protocnt == 1 ){
-        if( filter->protoallow[EUDPProto] == 1){
-            if( allowudpport > 0 ){
-                FILTER_ONLYUDP_1PORT(ret,allowudpport);
-                PRN_MSG("filter set udp filter port %d ret %d\n",allowudpport,ret);
+    switch( mode ){
+        case ETCPProto:
+            if( ipaddr != 0 ){
+                FILTER_ONLYTCP_1IP(ret,ipaddr);
+                PRN_MSG("filter set tcp filter ip 0x%x ret %d\n",ipaddr,ret);
             }
-            else if( allowipaddr > 0 && allowipaddr != (uint32_t)-1 ){
-                FILTER_ONLYUDP_1IP(ret,allowipaddr);
-                PRN_MSG("filter set udp filter ip 0x%x ret %d\n",allowipaddr,ret);
+            else{
+                FILTER_ONLYTCP(ret);
+                PRN_MSG("filter set tcp proto filter ret %d\n",ret);   
+            }
+            break;
+
+        case EUDPProto:
+            if( ipaddr != 0 ){
+                FILTER_ONLYUDP_1IP(ret,ipaddr);
+                PRN_MSG("filter set udp filter ip 0x%x ret %d\n",ipaddr,ret);
             }
             else{
                 FILTER_ONLYUDP(ret);
                 PRN_MSG("filter set udp proto filter ret %d\n",ret);                
             }
-
-            return ret;
-        }
-
-        if( filter->protoallow[ETCPProto] == 1){
-            if( allowtcpport > 0 ){
-                FILTER_ONLYTCP_1PORT(ret,allowtcpport);
-                PRN_MSG("filter set tcp filter port %d ret %d\n",allowtcpport,ret);
-            }
-            else if( allowipaddr > 0 && allowipaddr != (uint32_t)-1 ){
-                FILTER_ONLYTCP_1IP(ret,allowipaddr);
-                PRN_MSG("filter set tcp filter ip 0x%x ret %d\n",allowipaddr,ret);
-            }
-            else{
-                FILTER_ONLYTCP(ret);
-                PRN_MSG("filter set tcp proto filter ret %d\n",ret);                
-            }
-            return ret;
-        }
-    }
-
-    switch( limittype ){
-        case 1:
-            FILTER_ALL_1IP(ret,allowipaddr);
-            PRN_MSG("filter ip  0x%x ret %d\n",allowipaddr,ret);
             break;
 
-        case 2:
-            FILTER_ALL_1PORT(ret,allowudpport);
-            PRN_MSG("filter set port %d ret %d\n",allowudpport,ret);
-            break;     
-
-        case 3:
-            FILTER_ALL_1PORT(ret,allowtcpport);
-            PRN_MSG("filter set port %d ret %d\n",allowtcpport,ret);
-            break;    
-
         default:
-            FILTER_ALL(ret);
-            PRN_MSG("filter remote port 22|23 ret %d\n",ret);
+            if( ipaddr != 0 ){
+                FILTER_ALL_1IP(ret,ipaddr);
+                PRN_MSG("filter ip  0x%x ret %d\n",ipaddr,ret);
+            }
+            else if( remote == 0 ){
+                FILTER_ALL(ret);
+                PRN_MSG("filter remote port 22|23 ret %d\n",ret);
+            }
             break;
     }
 

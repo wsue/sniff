@@ -5,6 +5,13 @@
 #include <string.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <linux/if_ether.h>
+#include <linux/if_packet.h>
+#include <linux/filter.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
 
 #include "sniff_error.h"
 #include "sniff_conf.h"
@@ -22,7 +29,6 @@ static struct option sniff_options[] = {
     {"w",            1, 0, SNIFF_OPCODE_WRCAPFILE},
 
     {"p",            0, 0, SNIFF_OPCODE_PROMISC},
-    {"vlan",         0, 0, SNIFF_OPCODE_DECVLAN},
 
     {"f",            1, 0, SNIFF_OPCODE_MMAP_QLEN},
     {"c",            1, 0, SNIFF_OPCODE_CAPNUM},
@@ -73,18 +79,20 @@ static void help(const char *appname)
             "\t         IP{SADDR=10.10.10.10,DADDR!10.20.30.40,DAND}\n"
             "\t         TCP{SPORT!80,DPORT=30,ALL}\n"
             "\t         UDP{SPORT!80,DPORT=30,AND}\n"
+            "\t         TIME{[xxxx/xx/xx ]xx:xx:xx-[xxxx/xx/xx ]xx:xx:xx}\n"
+            "\t         MAP{from[-to]:dstport}\n"
             "\t         'TCP{PORT=80,PORT=110}UDP{PORT=53}'\n"
             "\t         DALL allow only match (one condition) item\n"
             "\t         DAND deny match all condition item \n"
             "\t         ALL  only deny match (one condition) item\n"
             "\t         AND  only deny match (all condition) item\n"
-            "\t-bcast - =[0|1|2] 0: only capture unicast, 1: only capture bcast, 2: capture all \n"
-            "\t-data  - =[0|1|2] 0: only capture proto,   1: only capture data, 2: capture all\n"
+            "\t-bcast - =[0|1|2] 0: capture all, 1: only capture unicast, 2: only capture bcast\n"
+            "\t-data  - =[0|1|2] 0: capture all, 1: only capture proto,   1: only capture data\n"
             "\t-tcpdata  - only decode tcp data, don't decode tcp head\n"
             "\t-rmxdata  - only decode rmx data(unknow packet will dump hex), don't decode tcp head(tcpdata option) and ping/pong\n"
-            "\t-vnc      - support all VNC port? (0: no specialfy, 1: include all vnc port, 2: only vnc in tcp protocol) \n"
+            "\t-vnc      - support all VNC port? (0: capture all, 1: skip all vnc, 2: only capture vnc) \n"
             "\t-vncstart=x - VNC port start from x\n"
-            "\t-remote - capture remote control package(ignore TCP port 22/23/10000)\n"
+            "\t-remote - capture remote control package(ignore TCP port 22/23)\n"
             "special keyword: DALL - deny all except spedial, ! - except, = - allow\n"
             "NOTE: the filter param should use '' to quote,else it won't correct send\n");
 
@@ -98,7 +106,7 @@ static void help(const char *appname)
             "\t-s     - silient mode(don't decode package to screen)\n"
             "\t-ttttt - Print a delta (micro-second resolution) between current and first line on each dump line.\n"
             "\t-eth   - show ether head\n"
-            "\t-vlan  - support decode vlan\n");
+            );
 
     return ;
 }
@@ -112,9 +120,9 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
 
     memset(ptConf,0,sizeof(*ptConf));
 
-    ptConf->ptFilter    = SFilter_Init();
-    if( !ptConf->ptFilter ) {
-        return ERRCODE_SNIFF_NOMEM;
+    ret    = SFilter_Init();
+    if( ret != 0) {
+        return ret;
     }
 
     ptConf->wMmapQLen      = DEFAULT_MMAP_QLEN;
@@ -184,10 +192,6 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
                 ptConf->bDecEth    = TRUE;
                 break;
 
-            case SNIFF_OPCODE_DECVLAN:
-                ptConf->bVlanOk    = TRUE;
-                break;
-
             case SNIFF_OPCODE_VNCPORT:
             case SNIFF_OPCODE_VNCOK:
             case SNIFF_OPCODE_PROTO:
@@ -195,7 +199,7 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
             case SNIFF_OPCODE_REMOTE:
             case SNIFF_OPCODE_BCAST:
             case SNIFF_OPCODE_DATA:
-                ret = SFilter_Analyse(ptConf->ptFilter,c,optarg);
+                ret = SFilter_Analyse(c,optarg);
                 if( ret != 0 ){
                     PRN_MSG("parse arg %c %s fail:%d, unsupport\n",c,optarg,ret);
                 }
@@ -210,9 +214,6 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
                 }
                 break;
 
-                ptConf->wVncPortStart   = strtoul(optarg,NULL,0);
-                break;
-
             default:
                 ret = 1;
                 help(argv[0]);
@@ -225,8 +226,6 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
     if( ret != 0 ){
         goto end;
     }
-
-    ptConf->wVncPortStart   = ptConf->ptFilter->wVncPortStart;
 
     //  检查参数是否符合运行条件
     //  ##  检查输入参数
@@ -253,7 +252,7 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
     }
 
     //  ##  检查过滤参数
-    ret = SFilter_Validate(ptConf->ptFilter,&ptConf->wEthFrameType);
+    ret = SFilter_Validate(&ptConf->wEthFrameType);
     if( ret != 0 ){
         PRN_MSG("no output device/file, please use -w [capfilename] to output to file or don't use -s , -h for help\n");
         ret = ERRCODE_SNIFF_PARAMERR;
@@ -262,14 +261,27 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
 
 end:
     if( ret != 0 ) {
-        SFilter_Release(ptConf->ptFilter);
+        SFilter_Release();
     }
 
     return ret;
 }
 
 
+static int RecvEthFrame(struct SniffDevCtl *ptDev)
+{
+    TcpipParser_ResetFrame(&ptDev->tEthFrame);
 
+    int len = ptDev->readframe(ptDev);
+    if( len <= 0 )
+        return len;
+    else if( len < ETH_HLEN )
+        return ERRCODE_SNIFF_BADFRAME;
+
+    ptDev->tEthFrame.framesize   = len;
+    int ret = TcpipParser_SetFrame(&ptDev->tEthFrame);
+	return ret == 0 ? len : ret;
+}
 
 static void ReleaseClean()
 {
@@ -280,11 +292,7 @@ static void ReleaseClean()
         s_tDevCtl.release = NULL;
     }
 
-    if( s_tDevCtl.ptFilter ){
-        SFilter_Release( s_tDevCtl.ptFilter);
-        s_tDevCtl.ptFilter    = NULL;
-    }
-
+    SFilter_Release( );
 }
 
 void sig_handler( int sig)
@@ -296,11 +304,10 @@ void sig_handler( int sig)
 }
 
 
-static int Init(struct SniffDevCtl *ptDev,const struct SniffConf *ptConf,struct SFilterCtl *ptFilter)
+static int Init(struct SniffDevCtl *ptDev,const struct SniffConf *ptConf)
 {
     int ret = 0;
     memset(ptDev,0,sizeof(*ptDev));
-    ptDev->ptFilter     = ptFilter;
 
 
     //  打开输入设备
@@ -332,7 +339,8 @@ static int Run(struct SniffDevCtl *ptDev,const struct SniffConf *ptConf)
     int         ret     = 0;
     int         recvcnt = 0;
     do{
-        int len = ptDev->readframe(ptDev);
+        SnifParser_ResetShow();
+        int len = RecvEthFrame(ptDev);
         if( len < 0 ){
             ret = len;
             PRN_MSG("recv frame fail, ret:%d\n",ret);
@@ -342,12 +350,16 @@ static int Run(struct SniffDevCtl *ptDev,const struct SniffConf *ptConf)
             break;
         }
 
-        if( 0 == SFilter_IsDeny(
-                    ptDev->ptFilter,ptConf->bVlanOk,
-                    ptDev->tRcvFrame.buf,len) ){
+        ret =  SFilter_IsDeny(&ptDev->tEthFrame);
+        if( 0 == ret ){
             recvcnt ++;
-            SnifParser_Exec(ptDev->tRcvFrame.ts,ptDev->tRcvFrame.buf,len);
+            SnifParser_Exec(&ptDev->tEthFrame);
         }
+        else if( ret != ERRCODE_SNIFF_IGNORE ){
+            break;
+        }
+            
+        SnifParser_Show();
 
         if( ptDev->postread )
             ret = ptDev->postread(ptDev);
@@ -376,7 +388,7 @@ int main(int argc, char **argv)
     atexit(ReleaseClean);
     signal(SIGINT, sig_handler);
 
-    ret = Init(&s_tDevCtl,&tConf,tConf.ptFilter);
+    ret = Init(&s_tDevCtl,&tConf);
     if( ret != 0 ){
         return 1;
     }

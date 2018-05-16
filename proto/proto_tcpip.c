@@ -20,10 +20,11 @@
 #include "proto_pub.h"
 #include "proto_tcpip.h"
 
+
 #define MAX_IP_ALIAS_NUM    32
 
 
-#define IS_QUIC_PORT(port)   ((port == 443 || ((port) >= s_iVncPort && (port) <= (s_iVncPort + 1024) ))
+#define IS_QUIC_PORT(port)   (port == 443 )
 
 
 struct IPAlias{
@@ -41,7 +42,6 @@ struct IPAlias  s_atIPAlias[MAX_IP_ALIAS_NUM];
 static int  s_bDecEthMac    = 0;
 static int  s_bDecHex       = 0;
 static int  s_bOnlyTcpData  = 0;
-static int  s_iVncPort      = 0;
 
 
 static inline const char* ip2alias(uint32_t ip,uint16_t port,char *cache){
@@ -118,101 +118,64 @@ static inline int GetProtoColorVal(uint32_t ethproto)
     return 49;
 }
 
-static inline int GetIPShowColorVal(const struct TcpIpInfo *ptTcpIp)
+static inline int GetIPShowColorVal(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pFrame)
 {
     const static int    colorcfg[10]    = {32,33,34,35,36,  37,92,93,95,96};
-    if( ptTcpIp->servport_side == 1 ){
-        return colorcfg[ptTcpIp->dstport %10];
-    }
-    else if( ptTcpIp->servport_side == 2 ){
-        return colorcfg[ptTcpIp->srcport %10];
-    }
-    else{
-        return 39;
-    }
+    return pFrame->mapport != 0 ?colorcfg[pFrame->mapport %10] : 39;
 }
 
-#define ASSERT_PORTTYPE(portnum,retval)     do{ \
-    if( ptTcpIp->srcport == portnum || ptTcpIp->dstport == portnum ){           \
-        ptTcpIp->servport_side      = ((ptTcpIp->srcport == portnum) ? 1 :2);   \
-        return retval;                          \
-    }}while(0)
-static uint8_t  GetTcpIpInfo( struct TcpIpInfo *ptTcpIp,const struct iphdr    *piphdr,const unsigned char *content,int contentlen)
+static uint8_t  GetTcpIpInfo( struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pFrame)
 {
-    int istcpip = 0;
-
     memset(ptTcpIp,0,sizeof(*ptTcpIp));
-    ptTcpIp->iphdr              = piphdr;
 
-    if( piphdr->protocol == IPPROTO_UDP ){
-        istcpip                 = 1;
+    ip2alias(pFrame->saddr,pFrame->sport,ptTcpIp->src);
+    ip2alias(pFrame->daddr,pFrame->dport,ptTcpIp->dst);
 
-        ptTcpIp->udphdr         = (struct udphdr *)(content);
-        ptTcpIp->content        = content + sizeof(struct udphdr);
-        ptTcpIp->contentlen     = contentlen - sizeof(struct udphdr);
-
-        ptTcpIp->srcport        = htons(ptTcpIp->udphdr->source); 
-        ptTcpIp->dstport        = htons(ptTcpIp->udphdr->dest); 
-    }
-    else if( piphdr->protocol == IPPROTO_TCP ){
-        istcpip                 = 1;
-
-        ptTcpIp->tcphdr         = (struct tcphdr *)(content);
-        ptTcpIp->content        = content + ptTcpIp->tcphdr->doff * 4;
-        ptTcpIp->contentlen     = contentlen - ptTcpIp->tcphdr->doff * 4;
-
-        ptTcpIp->srcport        = htons(ptTcpIp->tcphdr->source); 
-        ptTcpIp->dstport        = htons(ptTcpIp->tcphdr->dest);
-    }
-
-    ip2alias(htonl(piphdr->saddr),ptTcpIp->srcport,ptTcpIp->src);
-    ip2alias(htonl(piphdr->daddr),ptTcpIp->dstport,ptTcpIp->dst);
-
-    if( !istcpip ){
+    if( pFrame->hip->protocol != IPPROTO_UDP &&  pFrame->hip->protocol != IPPROTO_TCP ){
         return 0;
     }
 
-    if( piphdr->protocol == IPPROTO_UDP ){
-
-        ASSERT_PORTTYPE(69,UDPPORTTYP_TFTP);
-        ASSERT_PORTTYPE(53,UDPPORTTYP_DNS);
-        ASSERT_PORTTYPE(137,UDPPORTTYP_NETBIOSNS);
-        ASSERT_PORTTYPE(138,UDPPORTTYP_NETBIOSDGM);
-
+    if( pFrame->hip->protocol == IPPROTO_UDP ){
+        switch( pFrame->mapport ){
+            case 69:	return UDPPORTTYP_TFTP;
+            case 53:	return UDPPORTTYP_DNS;
+            case 137:	return UDPPORTTYP_NETBIOSNS;
+            case 138:	return UDPPORTTYP_NETBIOSDGM;
+            default:
+            break;
+        }
         return UDP_PORTTYP_UNKNOWN;
     }
 
 
-    ASSERT_PORTTYPE(20,TCPPORTTYP_FTPDATA);
-    ASSERT_PORTTYPE(21,TCPPORTTYP_FTPCMD);
-    ASSERT_PORTTYPE(22,TCPPORTTYP_SSH);
-    ASSERT_PORTTYPE(23,TCPPORTTYP_TELNET);
-    ASSERT_PORTTYPE(25,TCPPORTTYP_SMTP);
-    ASSERT_PORTTYPE(53,TCPPORTTYP_DNS);
-    ASSERT_PORTTYPE(67,TCPPORTTYP_BOOTPS);
-    ASSERT_PORTTYPE(68,TCPPORTTYP_BOOTPC);
-    ASSERT_PORTTYPE(80,TCPPORTTYP_HTTP);
-    ASSERT_PORTTYPE(110,TCPPORTTYP_POP3);
-    ASSERT_PORTTYPE(111,TCPPORTTYP_RPC);
-    ASSERT_PORTTYPE(115,TCPPORTTYP_SFTP);
-    ASSERT_PORTTYPE(123,TCPPORTTYP_NTP);
-    ASSERT_PORTTYPE(137,TCPPORTTYP_NETBIOSNS);
-    ASSERT_PORTTYPE(138,TCPPORTTYP_NETBIOSDGM);
-    ASSERT_PORTTYPE(139,TCPPORTTYP_NETBIOSSSN);
-    ASSERT_PORTTYPE(445,TCPPORTTYP_NETBIOSSSN);
-    ASSERT_PORTTYPE(161,TCPPORTTYP_SNMP);
-    ASSERT_PORTTYPE(179,TCPPORTTYP_BGP);
-    ASSERT_PORTTYPE(194,TCPPORTTYP_IRC);
-    ASSERT_PORTTYPE(220,TCPPORTTYP_IMAP3);
-    ASSERT_PORTTYPE(443,TCPPORTTYP_HTTPS);
-    ASSERT_PORTTYPE(3389,TCPPORTTYP_RDP);
-
-    if( CFG_IS_VNCPORT(ptTcpIp->srcport,s_iVncPort) ){
-        ptTcpIp->servport_side  = 1;
-        return TCPPORTTYP_VNC;
+    switch( pFrame->mapport ){
+        case 20:	return TCPPORTTYP_FTPDATA;
+        case 21:	return TCPPORTTYP_FTPCMD;
+        case 22:	return TCPPORTTYP_SSH;
+        case 23:	return TCPPORTTYP_TELNET;
+        case 25:	return TCPPORTTYP_SMTP;
+        case 53:	return TCPPORTTYP_DNS;
+        case 67:	return TCPPORTTYP_BOOTPS;
+        case 68:	return TCPPORTTYP_BOOTPC;
+        case 80:	return TCPPORTTYP_HTTP;
+        case 110:	return TCPPORTTYP_POP3;
+        case 111:	return TCPPORTTYP_RPC;
+        case 115:	return TCPPORTTYP_SFTP;
+        case 123:	return TCPPORTTYP_NTP;
+        case 137:	return TCPPORTTYP_NETBIOSNS;
+        case 138:	return TCPPORTTYP_NETBIOSDGM;
+        case 139:	return TCPPORTTYP_NETBIOSSSN;
+        case 445:	return TCPPORTTYP_NETBIOSSSN;
+        case 161:	return TCPPORTTYP_SNMP;
+        case 179:	return TCPPORTTYP_BGP;
+        case 194:	return TCPPORTTYP_IRC;
+        case 220:	return TCPPORTTYP_IMAP3;
+        case 443:	return TCPPORTTYP_HTTPS;
+        case 3389:	return TCPPORTTYP_RDP;
+        default:
+                        break;
     }
-    if( CFG_IS_VNCPORT(ptTcpIp->dstport,s_iVncPort) ){
-        ptTcpIp->servport_side  = 2;
+    if( CFG_IS_VNCPORT(pFrame->mapport) ){
         return TCPPORTTYP_VNC;
     }
 
@@ -310,45 +273,45 @@ static void ShowEthHead(int decmac,const struct ethhdr *eth,uint32_t ethproto)
     }
 }
 
-static void ShowTcpIpInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
+static void ShowTcpIpInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pFrame,uint16_t ipflag)
 {
-    PRN_SHOWBUF_COLOR(GetIPShowColorVal(ptTcpIp),"%15s => %15s <",
+    PRN_SHOWBUF_COLOR(GetIPShowColorVal(ptTcpIp,pFrame),"%15s => %15s <",
             ptTcpIp->src,ptTcpIp->dst);
 
-    PRN_SHOWBUF("data sz:%4d ",ptTcpIp->contentlen);
+    PRN_SHOWBUF("data sz:%4d ",pFrame->datalen);
 
     //  Ö»½â TCP°ü
-    if( ptTcpIp->contentlen < 0 ){
+    if( pFrame->datalen < 0 ){
         PRN_SHOWBUF(" CONTENT LEN ERROR>\n");
         return ;
     }
 
-    if( ptTcpIp->iphdr->protocol == IPPROTO_TCP ){
+    if( pFrame->hip->protocol == IPPROTO_TCP ){
 
-        if( (!s_bOnlyTcpData) || ptTcpIp->contentlen == 0 ){
+        if( (!s_bOnlyTcpData) || pFrame->datalen == 0 ){
             PRN_SHOWBUF("seq: %10u ack:%10u %s%s%s%s%s ",
-                    ptTcpIp->tcphdr->seq,ptTcpIp->tcphdr->ack_seq,
-                    ptTcpIp->tcphdr->syn ? "syn ":"",
-                    ptTcpIp->tcphdr->ack ? "ack ":"",
-                    ptTcpIp->tcphdr->fin ? "fin ":"",
-                    ptTcpIp->tcphdr->rst ? "rst ":"",
-                    ptTcpIp->tcphdr->psh ? "psh ":""
+                    pFrame->htcp->seq,pFrame->htcp->ack_seq,
+                    pFrame->htcp->syn ? "syn ":"",
+                    pFrame->htcp->ack ? "ack ":"",
+                    pFrame->htcp->fin ? "fin ":"",
+                    pFrame->htcp->rst ? "rst ":"",
+                    pFrame->htcp->psh ? "psh ":""
                     );
         }
-        TCP_DecInfo(ptTcpIp,ipflag,s_bDecHex);
+        TCP_DecInfo(ptTcpIp,pFrame,ipflag,s_bDecHex);
     }
-    else if( ptTcpIp->iphdr->protocol == IPPROTO_UDP ){
-        UDP_DecInfo(ptTcpIp,ipflag,s_bDecHex);
+    else if( pFrame->hip->protocol == IPPROTO_UDP ){
+        UDP_DecInfo(ptTcpIp,pFrame,ipflag,s_bDecHex);
     }
     else{
-        PRN_SHOWBUF("ip type:0x%02x(%5s)",ptTcpIp->iphdr->protocol,IPProto2Str(ptTcpIp->iphdr->protocol));
+        PRN_SHOWBUF("ip type:0x%02x(%5s)",pFrame->hip->protocol,IPProto2Str(pFrame->hip->protocol));
     }
 
     PRN_SHOWBUF(">");
 }
 
 
-static inline int IsProtoFilter(uint16_t ipflag,struct TcpIpInfo *ptTcpIp)
+static inline int IsProtoFilter(uint16_t ipflag,struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame)
 {
     static int ignorelist[] = PROTO_IGNORE_LIST;
     if( ipflag != 0 ){
@@ -359,63 +322,117 @@ static inline int IsProtoFilter(uint16_t ipflag,struct TcpIpInfo *ptTcpIp)
         }
     }
 
-    if( s_bOnlyTcpData && ptTcpIp->tcphdr ){
-        if( ptTcpIp->contentlen == 0
-                && !(ptTcpIp->tcphdr->syn || ptTcpIp->tcphdr->fin || ptTcpIp->tcphdr->rst) )
+    if( s_bOnlyTcpData && pEthFrame->hip->protocol == IPPROTO_TCP ){
+        if( pEthFrame->datalen == 0
+                && !(pEthFrame->htcp->syn || pEthFrame->htcp->fin || pEthFrame->htcp->rst) )
             return 1;
     }
     return 0;
 }
 
-static int TcpipParser_Decode(void *param,const struct timeval *ts,const unsigned char* data,int len)
+
+void TcpipParser_ResetFrame(struct EthFrameInfo *pFrame)
 {
-    struct TcpIpInfo        tTcpIp;
-    const struct ethhdr*    heth        = (struct ethhdr*)data;
-    uint32_t                ethproto    = htons(heth->h_proto);
-    uint16_t                ipflag      = 0;
-    const struct iphdr      *piphdr     = NULL;
-    int                     restlen     = len;
+    pFrame->framesize   = 0;
+    pFrame->ethproto    = 0;
+    pFrame->hip         = NULL;
+    pFrame->htcp        = NULL;
+    pFrame->saddr       = 0;
+    pFrame->daddr       = 0;
+    pFrame->sport       = 0;
+    pFrame->dport       = 0;
+    pFrame->mapport     = 0;
+    pFrame->data        = NULL;
+    pFrame->datalen     = 0;
+}
 
+int TcpipParser_SetFrame(struct EthFrameInfo *pframe)
+{
+    pframe->ethproto    = htons(pframe->heth->h_proto);
 
-    data            +=          ETH_HLEN;
-    restlen         -=          ETH_HLEN;
+    pframe->data        = (uint8_t *)pframe->heth;
+    pframe->datalen     = pframe->framesize;
+    pframe->data        += ETH_HLEN;
+    pframe->datalen     -= ETH_HLEN;
 
-    if( ethproto == ETH_P_8021Q ){
-        ethproto    = htons(*(uint16_t *)data) | VLAN_FLAG;
-        data        += 2;
-        restlen     -= 2;
-    }
-
-    if( (ethproto & 0xffff) == ETH_P_IP ){
-        int         contentlen;
-        piphdr      = (const struct iphdr    *)(data);
-        contentlen  = htons(piphdr->tot_len) - (piphdr->ihl << 2);
-        data        += (piphdr->ihl << 2);
-        restlen     -= (piphdr->ihl << 2);
-        if( restlen < contentlen ){
-            PRN_SHOWBUF_ERRMSG("###### \tWRONG FRAME, recv restlen %d < protocol content len:%d \n",restlen,contentlen);
+    if( pframe->ethproto == ETH_P_8021Q ){
+        if( pframe->datalen < 4 ){
+            PRN_SHOWBUF_ERRMSG("WRONG ETH FRAME, eth frame len:%d ",pframe->datalen);
+            return ERRCODE_SNIFF_BADFRAME;
         }
 
-        ipflag      = GetTcpIpInfo(&tTcpIp,piphdr,data,contentlen);
-        if( IsProtoFilter(ipflag,&tTcpIp) ){
+        pframe->ethproto = htons(*(unsigned short *)(pframe->data+2));
+        pframe->data    += 4;
+        pframe->datalen -= 4;
+    }
+
+    if( pframe->ethproto != ETH_P_IP )
+        return 0;
+
+    pframe->hip          =  (struct iphdr *)pframe->data;
+    size_t   iplen       = pframe->hip->ihl << 2;
+    size_t  totallen     = htons(pframe->hip->tot_len);
+    if( pframe->datalen < totallen ){
+        PRN_SHOWBUF_ERRMSG("###### \tWRONG FRAME, recv restlen %d < protocol content len:%d \n",pframe->datalen , totallen);
+        return ERRCODE_SNIFF_BADFRAME;
+    }
+
+    pframe->saddr       = htonl(pframe->hip->saddr);
+    pframe->daddr       = htonl(pframe->hip->daddr);
+
+    pframe->data         += iplen;
+    pframe->datalen      = totallen - iplen;
+
+    switch( pframe->hip->protocol ){
+        case IPPROTO_TCP:
+            pframe->htcp         = (struct tcphdr*)(pframe->data);
+            pframe->data         += pframe->htcp->doff * 4;
+            pframe->datalen      -= pframe->htcp->doff * 4;
+            pframe->sport        = htons(pframe->htcp->source); 
+            pframe->dport        = htons(pframe->htcp->dest); 
+            break;
+
+        case IPPROTO_UDP:
+            pframe->hudp         = (struct udphdr*)(pframe->data);
+            pframe->data         += sizeof(struct udphdr);
+            pframe->datalen      -= sizeof(struct udphdr);
+
+            pframe->sport        = htons(pframe->hudp->source); 
+            pframe->dport        = htons(pframe->hudp->dest); 
+            break;
+
+        default:
+            break;
+    }
+
+    pframe->mapport      = SFilter_MapPort( pframe->dport < pframe->sport ? pframe->dport : pframe->sport);
+    return 0;
+}
+
+static int TcpipParser_Decode(void *param,const struct EthFrameInfo *pEthFrame)
+{
+    struct TcpIpInfo        tTcpIp;
+	uint8_t                 ipflag = 0;
+    uint32_t                ethproto    = pEthFrame->ethproto;
+    if( htons(pEthFrame->heth->h_proto) == ETH_P_8021Q )
+         ethproto |= VLAN_FLAG;
+
+    if( (ethproto & 0xffff) == ETH_P_IP ){
+        ipflag      = GetTcpIpInfo(&tTcpIp,pEthFrame);
+        if( IsProtoFilter(ipflag,&tTcpIp,pEthFrame) ){
             DROP_SHOWBUF();
             return 0;
         }
         ethproto    |= ipflag << 16;
     }
 
-    ShowEthHead(s_bDecEthMac,heth,ethproto);
+    ShowEthHead(s_bDecEthMac,pEthFrame->heth,ethproto);
 
-    if( restlen < 0 ){
-        PRN_SHOWBUF_ERRMSG("WRONG ETH FRAME, eth frame len:%d ",len);
-    }
-
-    if( piphdr != NULL ){
-        ShowTcpIpInfo(&tTcpIp,ipflag);
-    }
+    if( (ethproto & 0xffff) == ETH_P_IP )
+        ShowTcpIpInfo(&tTcpIp,pEthFrame,ipflag);
     else if( ((ethproto & 0xffff ) == ETH_P_ARP)
             || ((ethproto & 0xffff ) == ETH_P_RARP) ){
-        Arp_DecInfo(data,restlen,s_bDecHex);
+        Arp_DecInfo(pEthFrame->data,pEthFrame->datalen,s_bDecHex);
     }
 
     return 0;
@@ -429,7 +446,6 @@ int TcpIpParser_Init(const struct SniffConf *ptConf)
     s_bDecEthMac    = ptConf->bDecEth;
     s_bDecHex       = ptConf->ucDecHex;
     s_bOnlyTcpData  = ptConf->bOnlyTcpData;
-    s_iVncPort      = ptConf->wVncPortStart;
 
     ParseIpAlias(ptConf->strAlias);
     TCPRMX_SetConf(ptConf);

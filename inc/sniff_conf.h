@@ -29,7 +29,6 @@
 #define SNIFF_OPCODE_RELATIMESTAMP  't'
 #define SNIFF_OPCODE_SILENT     's'
 #define SNIFF_OPCODE_DECETH     '0'
-#define SNIFF_OPCODE_DECVLAN    '1'
 
 #define SNIFF_OPCODE_PROTO      'P'
 #define SNIFF_OPCODE_FILTER     'F'
@@ -53,7 +52,8 @@
 #define SNIFF_HEX_ALLPKG        2
 
 #define CFG_DEF_VNCPORT_START   5901
-#define CFG_IS_VNCPORT(port,portstart)    ((port) >= portstart && (port) <= (portstart + 1024) )
+#define CFG_DEF_VNCPORT_NUM     1024
+#define CFG_IS_VNCPORT(port)    ((port) >= CFG_DEF_VNCPORT_START && (port) <= (CFG_DEF_VNCPORT_START + CFG_DEF_VNCPORT_NUM) )
 
 struct SniffConf{
     char    strEthname[32];             //  网卡名
@@ -65,7 +65,6 @@ struct SniffConf{
     uint16_t        wEthFrameType;      //  默认以太网帧类型,由ptFilter得到
     uint16_t        wMmapQLen;          //  mmap方式收包时mmap队列大小, 0表示不使用 mmap方式
     uint8_t         bPromisc;           //  是否使用混杂模式        
-    uint8_t         bVlanOk;            //  是否接收VLAN封装的报文
 
     uint8_t         ucRelateTimestamp;  //  显示相对第一帧的时间
     uint8_t         ucDecHex;           //  是否以十六进制显示未知内容,1: 16进制显示吧认识的报文, 2: 16进制显示所有报文
@@ -73,9 +72,7 @@ struct SniffConf{
     uint8_t         bOnlyTcpData;       //  只解TCP数据内容，不显示TCP头
     uint8_t         bRMXOnlyData;       //  只解RMX数据内容，不显示PING报文
     uint8_t         ucShowmode;         //  显示模式: 0 显示匹配 1: 显示不匹配 2:不显示
-    uint16_t        wVncPortStart;      //   VNC port range
     char            strMatch[SNIFF_MATCH_MAX];      //  当ucShowmode = [0|1]时,对应的参数
-    struct SFilterCtl   *ptFilter;      //  协议过滤器
 };
 
 
@@ -93,14 +90,13 @@ enum EProtoNum{
     EIPProto,       /*  必须是第一个独立的帧类型起始，在这后面不能有相同帧类型情况出现  */
     EARPProto,
     ERARPProto,
-    ESCTPProto,
     EOtherProto,
     ELastProto      /*  最后一个协议    */
 };
 
 union filter_item{
     unsigned char   mac[8];             /*  mac[0-2]=0表示此mac无效 */
-    unsigned int    val;                /*  值为0表示此值无效       */
+    uint32_t        val;                /*  值为0表示此值无效       */
 };
 
 struct filter_ctl{
@@ -109,31 +105,19 @@ struct filter_ctl{
     union filter_item      *excdst;    /*  目的例外列表 */
 };
 
+
+
 #define FILTER_MAX_ITEM     256
 
 
 
 
 enum LimitType{
-    FILTER_LIMITMODE_FALSE  = 0,
-    FILTER_LIMITMODE_TRUE   = 1,
-    FILTER_LIMITMODE_ALL    = 2
+    FILTER_LIMITMODE_NONE   = 0,
+    FILTER_LIMITMODE_FALSE  = 1,
+    FILTER_LIMITMODE_TRUE   = 2
 };
 
-struct SFilterCtl {
-    char                    protoallow[ELastProto]; /* 充许的协议 */
-    struct filter_ctl       mac;
-    struct filter_ctl       ip;
-    struct filter_ctl       tcp;
-    struct filter_ctl       udp;
-
-    /*  其它过滤控制            */
-    uint8_t                 remote;       /*  是否忽略远程控制报文(TCP 22/23/10000端口) */
-    uint8_t                 vnc;          /*   是否接收所有VNC报文 */
-    uint16_t                wVncPortStart;      //   VNC port range
-    enum LimitType          bcastok;      /*  mac过摅机制：0:不接收广播和组播,1只接收广播和组播,2:接收所有    */
-    enum LimitType          dataok;       /*  协议过摅机制：0:不接收数据,1只接收数据,2:接收所有    */
-};
 
 
 int Sniff_ParseArgs(struct SniffConf *ptConf,int argc, char ** argv);

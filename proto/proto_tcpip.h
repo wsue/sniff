@@ -57,29 +57,15 @@
 struct TcpIpInfo{
     char            src[IP_STR_LEN];
     char            dst[IP_STR_LEN];
-    uint16_t        srcport;
-    uint16_t        dstport;
-
-    uint8_t         servport_side;      //  服务端口所在位置, 0:no  1:src, 2: dst */
-    char            pad[3];
-
-    const struct iphdr    *iphdr;
-    union{
-        const struct tcphdr   *tcphdr;
-        const struct udphdr   *udphdr;
-    };
-    const unsigned char *content;
-    int             contentlen;
 };
 
-
-void UDPQuic_DecInfo(const struct TcpIpInfo *ptTcpIp);
+void UDPQuic_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame);
 int TCPRMX_SetConf(const struct SniffConf *ptConf);
-int TCPRMX_DecInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag);
-int TCPSSL_DecInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag);
+int TCPRMX_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,uint16_t ipflag);
+int TCPSSL_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,uint16_t ipflag);
 
 void Arp_DecInfo(const uint8_t *data,int len,int ucDecHex);
-void TCP_DecInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex);
-void UDP_DecInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex);
+void TCP_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,uint16_t ipflag,int ucDecHex);
+void UDP_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,uint16_t ipflag,int ucDecHex);
 
 #endif

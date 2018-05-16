@@ -21,22 +21,22 @@
 #include "proto_tcpip.h"
 
 
-static int DecShowableInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
+static int DecShowableInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,uint16_t ipflag)
 {
     switch( ipflag ){
         case TCPPORTTYP_FTPCMD:
         case TCPPORTTYP_TELNET:
         case TCPPORTTYP_SMTP:
-        return ProtoMisc_ShowString(ptTcpIp->content,ptTcpIp->contentlen,NULL);
+        return ProtoMisc_ShowString(pEthFrame->data,pEthFrame->datalen,NULL);
 
         case TCPPORTTYP_HTTP:
-        return ProtoMisc_ShowString(ptTcpIp->content,ptTcpIp->contentlen,"HTTP");
+        return ProtoMisc_ShowString(pEthFrame->data,pEthFrame->datalen,"HTTP");
 
         case TCPPORTTYP_HTTPS:
-        return TCPSSL_DecInfo(ptTcpIp,ipflag);
+        return TCPSSL_DecInfo(ptTcpIp,pEthFrame,ipflag);
 
         case TCPPORTTYP_VNC:
-        return TCPRMX_DecInfo(ptTcpIp,ipflag);
+        return TCPRMX_DecInfo(ptTcpIp,pEthFrame,ipflag);
 
         default:
         break;
@@ -45,20 +45,20 @@ static int DecShowableInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag)
     return 0;
 }
 
-void TCP_DecInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex)
+void TCP_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,uint16_t ipflag,int ucDecHex)
 {
-    if( ptTcpIp->contentlen > 0 )
+    if( pEthFrame->datalen > 0 )
     {
-        if( !DecShowableInfo(ptTcpIp,ipflag) ){
+        if( !DecShowableInfo(ptTcpIp,pEthFrame,ipflag) ){
             if( ipflag != TCPPORTTYP_HTTPS && ipflag != TCPPORTTYP_SSH && ucDecHex ){
-                ProtoMisc_DecHex(ptTcpIp->content,ptTcpIp->contentlen);
+                ProtoMisc_DecHex(pEthFrame->data,pEthFrame->datalen);
 
                 return ;
             }
         }
 
         if( ucDecHex == SNIFF_HEX_ALLPKG ){
-                ProtoMisc_DecHex(ptTcpIp->content,ptTcpIp->contentlen);
+                ProtoMisc_DecHex(pEthFrame->data,pEthFrame->datalen);
         }
     }
 }

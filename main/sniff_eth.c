@@ -333,7 +333,7 @@ static int mmap_read_callback(
     pmmap->ts.tv_sec      = pmmap->curhdr->tp_sec;
     pmmap->ts.tv_usec     = pmmap->curhdr->tp_usec;
 
-    ptCtl->tRcvFrame.buf = ((unsigned char*)pmmap->curhdr+pmmap->curhdr->tp_mac);
+    ptCtl->tEthFrame.heth = (struct ethhdr*)((unsigned char*)pmmap->curhdr+pmmap->curhdr->tp_mac);
 
     return pmmap->curhdr->tp_snaplen;
 }
@@ -506,7 +506,7 @@ int EthCapDev_Init(struct SniffDevCtl *ptCtl,const char *devname,
 
     /*      ÉèÖÃBPF¹ýÂËÆ÷
     */
-    ret = SFilter_setBPF(ptCtl->ptFilter,tEthCtl.sd,frametype);
+    ret = SFilter_setBPF(tEthCtl.sd,frametype);
     if( ret != 0 ){
         PRN_MSG("warn:  set BPF to socket fail:%d:%d\n",ret,errno);
     }
@@ -533,7 +533,7 @@ int EthCapDev_Init(struct SniffDevCtl *ptCtl,const char *devname,
 
         ptEthCtl->mmapinfo.curhdr   = (struct tpacket_hdr  *)ptEthCtl->mmapinfo.buf;
 
-        ptCtl->tRcvFrame.ts          = &ptEthCtl->mmapinfo.ts;
+        ptCtl->tEthFrame.ts          = &ptEthCtl->mmapinfo.ts;
 
         ptCtl->readframe            = mmap_read_callback;
         ptCtl->postread             = mmap_postread_callback;
@@ -543,8 +543,8 @@ int EthCapDev_Init(struct SniffDevCtl *ptCtl,const char *devname,
 
         ptCtl->readframe            = normal_read_callback;
 
-        ptCtl->tRcvFrame.buf      = ptEthCtl->normalinfo.buf;
-        ptCtl->tRcvFrame.ts       = &ptEthCtl->normalinfo.ts;
+        ptCtl->tEthFrame.heth      = (struct ethhdr*)ptEthCtl->normalinfo.buf;
+        ptCtl->tEthFrame.ts       = &ptEthCtl->normalinfo.ts;
     }
 
     ptCtl->release              = ethdev_release;

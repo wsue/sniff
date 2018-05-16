@@ -26,9 +26,9 @@ struct DNSName{
  *      return read num from content
  *      -1  means error
  */
-static int DecDNSNameSplice(const struct TcpIpInfo *ptTcpIp,int offset,int isreq,struct DNSName *pout)
+static int DecDNSNameSplice(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,int offset,int isreq,struct DNSName *pout)
 {
-    const uint8_t *p    = ptTcpIp->content + offset;
+    const uint8_t *p    = pEthFrame->data + offset;
     uint8_t sz          = p[0];
 
 
@@ -44,7 +44,7 @@ static int DecDNSNameSplice(const struct TcpIpInfo *ptTcpIp,int offset,int isreq
 
         tmp     = ((p[0] & 0x3f) << 8 )| p[1];
         do{
-            int ret = DecDNSNameSplice(ptTcpIp,tmp,isreq,pout);
+            int ret = DecDNSNameSplice(ptTcpIp,pEthFrame,tmp,isreq,pout);
             if( ret < 0 ){
                 return ret;
             }
@@ -66,7 +66,7 @@ static int DecDNSNameSplice(const struct TcpIpInfo *ptTcpIp,int offset,int isreq
         return 0x10001;
     }
 
-    if( (offset + sz +1 > ptTcpIp->contentlen) || (sz + pout->len +1>= 256 )){
+    if( (offset + sz +1 > pEthFrame->datalen) || (sz + pout->len +1>= 256 )){
         return -1;
     }
 
@@ -79,13 +79,13 @@ static int DecDNSNameSplice(const struct TcpIpInfo *ptTcpIp,int offset,int isreq
 }
 
 
-static int  DecDNSName(const struct TcpIpInfo *ptTcpIp,int offset,int isreq,struct DNSName *pout)
+static int  DecDNSName(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,int offset,int isreq,struct DNSName *pout)
 {
     int         ret     = 0;
     pout->len           = 0;
 
     do{
-        ret     = DecDNSNameSplice(ptTcpIp,offset,isreq,pout);
+        ret     = DecDNSNameSplice(ptTcpIp,pEthFrame,offset,isreq,pout);
         if( ret < 0 ){
             return ret;
         }
@@ -97,9 +97,9 @@ static int  DecDNSName(const struct TcpIpInfo *ptTcpIp,int offset,int isreq,stru
     return offset ;  
 }
 
-static void DecDNSInfo(const struct TcpIpInfo *ptTcpIp)
+static void DecDNSInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame)
 {
-    uint16_t    flag    = htons(*(uint16_t *)(ptTcpIp->content+2));
+    uint16_t    flag    = htons(*(uint16_t *)(pEthFrame->data+2));
     uint16_t    infocnt[EDNSCntType_MAX];
 
     int         qr      = flag & 0xa000;
@@ -109,15 +109,15 @@ static void DecDNSInfo(const struct TcpIpInfo *ptTcpIp)
     int         isreq   = 0;
     struct DNSName      out;
 
-    if( ptTcpIp->contentlen < 12 ){
+    if( pEthFrame->datalen < 12 ){
         PRN_SHOWBUF_ERRMSG("ERROR: wrong DNS pkg len");
         return ;
     }
 
-    infocnt[EDNSCntType_Question]   = htons(*(uint16_t *)(ptTcpIp->content+4));
-    infocnt[EDNSCntType_ANSWER]     = htons(*(uint16_t *)(ptTcpIp->content+6));
-    infocnt[EDNSCntType_AUTHORITY]  = htons(*(uint16_t *)(ptTcpIp->content+8));
-    infocnt[EDNSCntType_ADDITIONAL] = htons(*(uint16_t *)(ptTcpIp->content+10));
+    infocnt[EDNSCntType_Question]   = htons(*(uint16_t *)(pEthFrame->data+4));
+    infocnt[EDNSCntType_ANSWER]     = htons(*(uint16_t *)(pEthFrame->data+6));
+    infocnt[EDNSCntType_AUTHORITY]  = htons(*(uint16_t *)(pEthFrame->data+8));
+    infocnt[EDNSCntType_ADDITIONAL] = htons(*(uint16_t *)(pEthFrame->data+10));
 
     if( qr == 0 ){
         if( infocnt[EDNSCntType_Question] == 0 ){
@@ -140,7 +140,7 @@ static void DecDNSInfo(const struct TcpIpInfo *ptTcpIp)
         PRN_SHOWBUF("query %d addr: <",infocnt[EDNSCntType_Question]);
 
         for( i = 0; i < infocnt[EDNSCntType_Question] ; i ++ ){
-            offset  = DecDNSName(ptTcpIp,offset,isreq,&out);
+            offset  = DecDNSName(ptTcpIp,pEthFrame,offset,isreq,&out);
             if( offset < 0 ){
                 PRN_SHOWBUF_ERRMSG("ERROR: get DNS name info failed\n");
                 return ;
@@ -177,21 +177,21 @@ static void DecDNSInfo(const struct TcpIpInfo *ptTcpIp)
                 unsigned int type   = 0;
                 unsigned int class  = 0;
                 unsigned int datalen= 0;
-                offset      = DecDNSName(ptTcpIp,offset,isreq,&out);
+                offset      = DecDNSName(ptTcpIp,pEthFrame,offset,isreq,&out);
                 if( offset < 0 ){
                     PRN_SHOWBUF_ERRMSG("ERROR: get DNS name info failed\n");
                     return ;
                 }
 
                 /*      ack type(2) ack class(2) ttl(4) */
-                type        = htons(*(uint16_t *)(ptTcpIp->content + offset));
-                class       = htons(*(uint16_t *)(ptTcpIp->content + offset+2));
-                datalen     = htons(*(uint16_t *)(ptTcpIp->content + offset+8));
+                type        = htons(*(uint16_t *)(pEthFrame->data + offset));
+                class       = htons(*(uint16_t *)(pEthFrame->data + offset+2));
+                datalen     = htons(*(uint16_t *)(pEthFrame->data + offset+8));
                 offset      += 10;
 
                 if( datalen == 4 && type == 1 && class == 1 ){
-                    PRN_SHOWBUF("(%s:%d.%d.%d.%d) ",out.buf,ptTcpIp->content[offset],ptTcpIp->content[offset+1]
-                            ,ptTcpIp->content[offset+2],ptTcpIp->content[offset+3]
+                    PRN_SHOWBUF("(%s:%d.%d.%d.%d) ",out.buf,pEthFrame->data[offset],pEthFrame->data[offset+1]
+                            ,pEthFrame->data[offset+2],pEthFrame->data[offset+3]
                             );
                 }
                 else{
@@ -199,7 +199,7 @@ static void DecDNSInfo(const struct TcpIpInfo *ptTcpIp)
                 }
 
                 offset      += datalen;
-                if( offset > ptTcpIp->contentlen  ){
+                if( offset > pEthFrame->datalen  ){
                     PRN_SHOWBUF_ERRMSG("DECODE DNS PKG FAIL,leng error");
                     return ;
                 }
@@ -211,25 +211,25 @@ static void DecDNSInfo(const struct TcpIpInfo *ptTcpIp)
 }
 
 void DecQuicProto(const struct TcpIpInfo *ptTcpIp);
-void UDP_DecInfo(const struct TcpIpInfo *ptTcpIp,uint16_t ipflag,int ucDecHex)
+void UDP_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pEthFrame,uint16_t ipflag,int ucDecHex)
 {
-    if( ptTcpIp->contentlen > 0 )
+    if( pEthFrame->datalen > 0 )
     {
         if( ipflag == UDPPORTTYP_DNS ){
-            DecDNSInfo(ptTcpIp);
+            DecDNSInfo(ptTcpIp,pEthFrame);
 
             if( ucDecHex == SNIFF_HEX_ALLPKG ){
-                ProtoMisc_DecHex(ptTcpIp->content,ptTcpIp->contentlen);
+                ProtoMisc_DecHex(pEthFrame->data,pEthFrame->datalen);
             }
         } 
         else if( ipflag == UDPPORTTYP_QUIC ){
-            UDPQuic_DecInfo(ptTcpIp);
+            UDPQuic_DecInfo(ptTcpIp,pEthFrame);
             if( ucDecHex == SNIFF_HEX_ALLPKG ){
-                ProtoMisc_DecHex(ptTcpIp->content,ptTcpIp->contentlen);
+                ProtoMisc_DecHex(pEthFrame->data,pEthFrame->datalen);
             }
         }
         else if( ucDecHex ){
-            ProtoMisc_DecHex(ptTcpIp->content,ptTcpIp->contentlen);
+            ProtoMisc_DecHex(pEthFrame->data,pEthFrame->datalen);
         }
     }
 }
