@@ -291,8 +291,8 @@ static void ShowTcpIpInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameI
     }
 
     if( pFrame->hip->protocol == IPPROTO_TCP ){
-
-        if( sTcpShowMode.ProtoDecMode == EOptModeFull ){
+        int important = (pFrame->htcp->syn || pFrame->htcp->fin || pFrame->htcp->rst)? 1:0;
+        if( sTcpShowMode.ProtoDecMode == EOptModeFull || important ){
             PRN_SHOWBUF("seq: %10u ack:%10u %s%s%s%s%s ",
                     pFrame->htcp->seq,pFrame->htcp->ack_seq,
                     pFrame->htcp->syn ? "syn ":"",
@@ -347,6 +347,7 @@ int TcpipParser_SetFrame(struct EthFrameInfo *pframe)
 
     pframe->data        = (uint8_t *)pframe->heth;
     pframe->datalen     = pframe->framesize;
+    pframe->data[pframe->datalen]   = 0;
     pframe->data        += ETH_HLEN;
     pframe->datalen     -= ETH_HLEN;
 
@@ -455,9 +456,7 @@ void TcpipParser_SetParam(char opcode,const char *optarg)
             sTcpShowMode.bDecEthMac = TRUE;
             break;
 
-        case SNIFF_OPCODE_RMXDATA:
-            sTcpShowMode.ProtoDecMode = EOptModeDef;
-            sTcpShowMode.DecHex     = EOptModeLimit;
+        case SNIFF_OPCODE_RMXPROTO:
             TCPRMX_SetParam(opcode,optarg);
             break;
 

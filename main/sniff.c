@@ -40,7 +40,7 @@ static struct option sniff_options[] = {
     {"bcast",        1, 0, SNIFF_OPCODE_BCAST},
     {"data",         1, 0, SNIFF_OPCODE_DATA},
     {"tcphead",      1, 0, SNIFF_OPCODE_TCPHEAD},
-    {"rmxdata",      0, 0, SNIFF_OPCODE_RMXDATA},
+    {"rmxproto",     0, 0, SNIFF_OPCODE_RMXPROTO},
     {"vnc",          1, 0, SNIFF_OPCODE_VNCOK},
     {"vncstart",     1, 0, SNIFF_OPCODE_VNCPORT},
 
@@ -89,7 +89,7 @@ static void help(const char *appname)
             "\t-bcast - =[0|1|2] 0: capture all, 1: only capture unicast, 2: only capture bcast\n"
             "\t-data  - =[0|1|2] 0: capture all, 1: only capture proto,   1: only capture data\n"
             "\t-tcphead  - [0|1|2] 0 don't show tcp head and zero data, 1: show zero data, 2: show tcp head and zero data\n"
-            "\t-rmxdata  - only decode rmx data(unknow packet will dump hex), don't decode tcp head(tcpdata option) and ping/pong\n"
+            "\t-rmxproto - decode ping/pong\n"
             "\t-vnc      - support all VNC port? (0: capture all, 1: skip all vnc, 2: only capture vnc) \n"
             "\t-vncstart=x - VNC port start from x\n"
             "\t-remote - capture remote control package(ignore TCP port 22/23)\n"
@@ -175,7 +175,7 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
             case SNIFF_OPCODE_HEX:
             case SNIFF_OPCODE_HEXALL:
             case SNIFF_OPCODE_DECETH:
-            case SNIFF_OPCODE_RMXDATA:
+            case SNIFF_OPCODE_RMXPROTO:
             case SNIFF_OPCODE_TCPHEAD:
                 TcpipParser_SetParam(c,optarg);
                 break;

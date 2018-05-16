@@ -38,7 +38,7 @@
 #define SNIFF_OPCODE_BCAST      '3'
 #define SNIFF_OPCODE_DATA       '4'
 #define SNIFF_OPCODE_TCPHEAD    '5'
-#define SNIFF_OPCODE_RMXDATA    '6'
+#define SNIFF_OPCODE_RMXPROTO   '6'
 #define SNIFF_OPCODE_VNCPORT    '7'
 #define SNIFF_OPCODE_VNCOK      '8'
 
