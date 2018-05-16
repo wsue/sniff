@@ -372,6 +372,11 @@ int SFilter_IsDeny(struct EthFrameInfo *pEthFrame)
             return ret;
 
         if( pEthFrame->hip->protocol == IPPROTO_TCP && pEthFrame->htcp ){
+            if( sFilters[EFilterItemProto].status == EOptModeDef 
+                    && (pEthFrame->mapport == 22 
+                        || pEthFrame->mapport == 23 ) )
+                return ERRCODE_SNIFF_IGNORE;
+
             static const int tcpignorelist[] = TCP_IGNORE_LIST;
             const int *p = tcpignorelist;
             for( ; *p != 0 && *p != pEthFrame->mapport; p ++) ;
