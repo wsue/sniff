@@ -124,7 +124,8 @@ static inline int GetProtoColorVal(uint32_t ethproto)
 static inline int GetIPShowColorVal(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pFrame)
 {
     const static int    colorcfg[10]    = {32,33,34,35,36,  37,92,93,95,96};
-    return pFrame->mapport != 0 ?colorcfg[pFrame->mapport %10] : 39;
+    int port = pFrame->sport > pFrame->dport ? pFrame->sport : pFrame->dport;
+    return pFrame->mapport != 0 ?colorcfg[port %10] : 39;
 }
 
 static uint8_t  GetTcpIpInfo( struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pFrame)

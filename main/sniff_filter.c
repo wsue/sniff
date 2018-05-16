@@ -886,22 +886,89 @@ static uint32_t str2time(char* str,uint32_t defval)
         while( *str && isspace(*str)) str ++;
     }
 
-    if( !str || !str[0] ){
+    if( !str || !str[0] || !isdigit(str[0])){
         return defval;
     }
 
-#define SET_TIMEVAL(name,sep,min,max,offset)   do{ \
-    int val         = gettimeval(str,sep,min,max);  \
-    if( val == -1 )     return defval;              \
-    if( val == -2 )     return mktime(&curtime);     \
-    curtime.name    = val+offset; }while(0)
+    int step    = 0;    /*  list:
+1:  year
+2:  mon
+3:  day
+4:  hour
+5:  min
+6:  sec
+*/
+    char    *pnext =str;
+    do{
+        int val = atoi(pnext);
+        while( isdigit(pnext[0]))    pnext++;
 
-    SET_TIMEVAL(tm_sec,':',0,60,0);
-    SET_TIMEVAL(tm_min,':',0,59,0);
-    SET_TIMEVAL(tm_hour,' ',0,23,0);
-    SET_TIMEVAL(tm_mday,'/',1,31,0);
-    SET_TIMEVAL(tm_mon,'/',0,11,-1);
-    SET_TIMEVAL(tm_year,'/',0,200,-1900);
+        switch( pnext[0] ){
+            case '/':
+            if( val > 1900 )
+                step    = 1;
+            else
+                step    = 2;
+            break;
+
+            case ' ':
+            step        = 3;
+            break;
+
+            case ':':
+            if( step == 4 )
+                step    = 5;
+            else
+                step    = 4;
+            break;
+
+            default:
+            if( step == 5 )
+                step    = 6;
+            else
+                step    = 4;
+            break;
+        }
+
+        switch( step ){
+            case 1:
+                if( val > 1900 )
+                    curtime.tm_year = val - 1900;
+                break;
+
+            case 2:
+                val --;
+                if( val >= 0 << val <= 11 )
+                    curtime.tm_mon = val - 1;
+                break;
+
+            case 3:
+                if( val >= 1 && val <= 31 )
+                    curtime.tm_mday = val;
+                break;
+
+            case 4:
+                if( val >= 0 && val <= 23 )
+                    curtime.tm_hour = val;
+                break;
+
+            case 5:
+                if( val >= 0 && val <= 59 )
+                    curtime.tm_min  = val;
+                break;
+
+            case 6:
+                if( val >= 0 && val <= 60 )
+                    curtime.tm_sec  = val;
+                break;
+            default:
+                break;
+        }
+
+        if( pnext[0] )
+            pnext   ++;
+    }while(pnext[0]);
+
     return mktime(&curtime);
 }
 
@@ -918,6 +985,24 @@ static int timefilter_set(struct FilterInfo *filter,const char* token,const char
 
     if( !param || !param[0] )
         return 0;
+
+    if( param[0] == '+' ){
+        sFilterTime.startsec    = time(NULL);
+        sFilterTime.endsec      = sFilterTime.startsec + atoi(param+1);
+        filter->status  = EOptModeLimit;
+        return 0;
+    }
+
+    if( param[0] == '-' && !strstr(param,':')){
+        sFilterTime.endsec      = time(NULL);
+        sFilterTime.startsec    = sFilterTime.endsec - atoi(param+1);
+        filter->status  = EOptModeLimit;
+        return 0;
+    }
+
+    if( !isdigit(param[0]) ){
+        return ERRCODE_SNIFF_PARAMERR;
+    }
 
     strncpy(cache,param,sizeof(cache)-1);
     cache[sizeof(cache)-1]  = 0;
@@ -947,11 +1032,11 @@ static int timefilter_validate(struct FilterInfo *filter)
                 starttime.tm_hour,starttime.tm_min,starttime.tm_sec,
                 endtime.tm_year + 1900,endtime.tm_mon +1,endtime.tm_mday,
                 endtime.tm_hour,endtime.tm_min,endtime.tm_sec
-              );
-	    if( sFilterTime.startsec >=  sFilterTime.endsec ){
-		    PRN_MSG("time range error\n");
-		    return ERRCODE_SNIFF_PARAMERR;
-		}
+               );
+        if( sFilterTime.startsec >=  sFilterTime.endsec ){
+            PRN_MSG("time range error\n");
+            return ERRCODE_SNIFF_PARAMERR;
+        }
     }
 
     return 0;
