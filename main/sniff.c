@@ -344,7 +344,8 @@ static int Run(struct SniffDevCtl *ptDev,const struct SniffConf *ptConf)
 
         if( ptDev->postread )
             ret = ptDev->postread(ptDev);
-
+        else
+		    ret = 0;
     }while( ret == 0 && (ptConf->dwCapNum == 0 || recvcnt != ptConf->dwCapNum) );
 
     PRN_MSG("recv %d package, stop for err:%d\n",recvcnt,ret);
