@@ -219,7 +219,7 @@ static int proto_setdetail(const char* syntax)
      *  TCP,UDP,ARP,RARP,DALL
      */
     for( i = 0; i < len && *syntax ; i ++ ) {
-        while(isspace(*syntax) )   syntax++;
+        //while(isspace(*syntax) )   syntax++;
         if( *syntax )
             pstr[i]    = toupper(*syntax++);
     }
@@ -908,31 +908,23 @@ static uint32_t str2time(char* str,uint32_t defval)
         int val = atoi(pnext);
         while( isdigit(pnext[0]))    pnext++;
 
-        switch( pnext[0] ){
-            case '/':
-            if( val > 1900 )
-                step    = 1;
-            else
-                step    = 2;
-            break;
+        if( step == 0 ){
+            switch( pnext[0] ){
+                case '/':
+                    step    = ( val > 1900 )? 1:2;
+                    break;
 
-            case ' ':
-            step        = 3;
-            break;
+                case ' ':
+                    step    = 3;
+                    break;
 
-            case ':':
-            if( step == 4 )
-                step    = 5;
-            else
-                step    = 4;
-            break;
-
-            default:
-            if( step == 5 )
-                step    = 6;
-            else
-                step    = 4;
-            break;
+                default:
+                    step    = 4;
+                    break;
+            }
+        }
+        else{
+            step ++;
         }
 
         switch( step ){
