@@ -140,6 +140,9 @@ static struct FilterInfo* filter_get(enum EFilterItemIndex index)
 
 static int filter_set(const char *name,const char* token, const char* param)
 {
+    if( !name || !*name )
+	    return 0;
+		
     struct FilterInfo   *pfilter = sFilters;
     for( ; pfilter->name && strcmp(name,pfilter->name); pfilter ++ ){
     }
@@ -218,11 +221,8 @@ static int proto_setdetail(const char* syntax)
     /*  Óï·¨:
      *  TCP,UDP,ARP,RARP,DALL
      */
-    for( i = 0; i < len && *syntax ; i ++ ) {
-        //while(isspace(*syntax) )   syntax++;
-        if( *syntax )
-            pstr[i]    = toupper(*syntax++);
-    }
+    for( i = 0; i < len && *syntax ; i ++ ) pstr[i]    = toupper(*syntax++);
+    pstr[len]   = 0;
 
     token   = strtok_r(pstr,"{",&lasts);
     if( !token ) {
@@ -236,6 +236,7 @@ static int proto_setdetail(const char* syntax)
             break;
         }
 
+        while(isspace(*token) || *token == ',')  token++;
         printf(" ANALYSE %s-%s|\n",token,param);
         ret = filter_set(token,token,param);
         token   = strtok_r(NULL,"{",&lasts);
@@ -940,18 +941,27 @@ static uint32_t str2time(char* str,uint32_t defval)
                 break;
 
             case 3:
-                if( val >= 1 && val <= 31 )
+                if( val >= 1 && val <= 31 ){
                     curtime.tm_mday = val;
+                    curtime.tm_hour = 0;
+                    curtime.tm_min  = 0;
+                    curtime.tm_sec  = 0;
+                }
                 break;
 
             case 4:
-                if( val >= 0 && val <= 23 )
+                if( val >= 0 && val <= 23 ){
                     curtime.tm_hour = val;
+                    curtime.tm_min  = 0;
+                    curtime.tm_sec  = 0;
+                }
                 break;
 
             case 5:
-                if( val >= 0 && val <= 59 )
+                if( val >= 0 && val <= 59 ){
                     curtime.tm_min  = val;
+                    curtime.tm_sec  = 0;
+                }
                 break;
 
             case 6:

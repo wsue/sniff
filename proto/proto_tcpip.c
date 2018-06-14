@@ -41,6 +41,7 @@ struct TcpIpShowMode{
     int             bDecEthMac;
     enum EOptMode   DecHex;
     enum EOptMode   ProtoDecMode;
+    int             bIPAlias;
     struct IPAlias  atIPAlias[MAX_IP_ALIAS_NUM];
 };
 
@@ -48,15 +49,22 @@ static struct TcpIpShowMode sTcpShowMode;
 
 
 static inline const char* ip2alias(uint32_t ip,uint16_t port,char *cache){
-    int     i = 0;
-    for( ; i < MAX_IP_ALIAS_NUM && sTcpShowMode.atIPAlias[i].ipaddr != 0; i ++ ){
-        if( sTcpShowMode.atIPAlias[i].ipaddr == ip && ( sTcpShowMode.atIPAlias[i].port == 0 ||  sTcpShowMode.atIPAlias[i].port == port ) ){
-            if(  sTcpShowMode.atIPAlias[i].port == 0 ){
-                snprintf(cache,IP_STR_LEN -1,"%s:%d",sTcpShowMode.atIPAlias[i].alias,port);
+    if( sTcpShowMode.bIPAlias ){
+        int     i = 0;
+        for( ; i < MAX_IP_ALIAS_NUM && sTcpShowMode.atIPAlias[i].ipaddr != 0; i ++ ){
+            if( sTcpShowMode.atIPAlias[i].ipaddr == ip && ( sTcpShowMode.atIPAlias[i].port == 0 ||  sTcpShowMode.atIPAlias[i].port == port ) ){
+                if(  sTcpShowMode.atIPAlias[i].port == 0 ){
+                    snprintf(cache,IP_STR_LEN -1,"%s:%d",sTcpShowMode.atIPAlias[i].alias,port);
+                }
+                else{
+                    strncpy(cache,sTcpShowMode.atIPAlias[i].alias,IP_STR_LEN -1);
+                }
+                return cache;
             }
-            else{
-                strncpy(cache,sTcpShowMode.atIPAlias[i].alias,IP_STR_LEN -1);
-            }
+        }
+
+        if( port < 32767 ){
+            snprintf(cache,IP_STR_LEN -1,"svr:%d",port);
             return cache;
         }
     }
@@ -66,6 +74,10 @@ static inline const char* ip2alias(uint32_t ip,uint16_t port,char *cache){
 
 static void ParseIpAlias(const char *conf)
 {
+    sTcpShowMode.bIPAlias   = 1;
+    if( !conf )
+        return ;
+
     int     count           = 0;
     char    *cache          = strdup(conf);
 

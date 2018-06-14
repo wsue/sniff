@@ -26,15 +26,14 @@
 #include "proto_rmx.h"
 #endif
 
-#define RMX_PACKET_SETTINGBODYMAX   360
-#define RMX_PACKET_TCPPDUMIN        480
-#define RMX_PACKET_NORMALBODYSIZE   1400
-#define RMX_PACKET_NORMALBODYMAX    2000
-
-static int sOnlyRMXData = 0;
 
 
-static inline const char* RMXGetChannelName(uint8_t id,const uint8_t* body)
+static int sOnlyRMXData = 1;
+
+
+
+
+static const char* RMXGetChannelName(uint8_t id,size_t rmxlen,const uint8_t* body)
 {
 #ifdef SUPPORT_RMX_PROTOCOL
     switch( id ){
@@ -74,8 +73,8 @@ static inline const char* RMXGetChannelName(uint8_t id,const uint8_t* body)
 int TCPRMX_SetParam(char opcode,const char *optarg)
 {
     switch( opcode ){
-        case SNIFF_OPCODE_RMXDATA:
-            sOnlyRMXData    = 1;
+        case SNIFF_OPCODE_RMXPROTO:
+            sOnlyRMXData    = 0;
             break;
 
         default:
@@ -94,52 +93,19 @@ int TCPRMX_DecInfo(const struct TcpIpInfo *ptTcpIp,const struct EthFrameInfo *pE
     if(  pEthFrame->data[2] == ' ' && isalpha(pEthFrame->data[0])){  // not "RMX " "RFB " "CSR "
         return ProtoMisc_ShowString(pEthFrame->data,pEthFrame->datalen,NULL);
     }
-    else{
+
 #ifdef SUPPORT_RMX_PROTOCOL
-
-        struct RMXHead* head = (struct RMXHead*)pEthFrame->data;
-        const char*     channelname = RMXGetChannelName(head->channel_id,head->body);
-
-        if( channelname ){
-            uint32_t len = RMX_PACKET_GETSIZE(head);
-
-            if( head->channel_id == kMouse 
-                    || head->channel_id == kKey
-                    || head->channel_id == kMotion ){
-                if( len > RMX_PACKET_NORMALBODYSIZE || pEthFrame->datalen > RMX_PACKET_NORMALBODYSIZE)
-                    return 0;
-            }
-
-            if( head->channel_id == kSetting && len > RMX_PACKET_SETTINGBODYMAX  ){
-                return 0;
-            }
-
-            if( (len +RMX_PACKET_HEADSIZE ) == pEthFrame->datalen 
-                    || (len > RMX_PACKET_TCPPDUMIN && len < RMX_PACKET_NORMALBODYMAX && pEthFrame->datalen > RMX_PACKET_TCPPDUMIN ) ){
-                if( head->channel_id == kConnection ){
-                    if( len < 10 ){
-                        PRN_SHOWBUF("RMX: %s",channelname);
-                        return 1;
-                    }
-
-                    return 0;
-                }
-
-
-                PRN_SHOWBUF("RMX: %s :%d/%d ",channelname,pEthFrame->datalen -RMX_PACKET_HEADSIZE ,len);
-                return 1;
-            }
-
-            if( len != 0 
-                    || ( len > RMX_PACKET_NORMALBODYSIZE 
-                        && pEthFrame->datalen < (RMX_PACKET_NORMALBODYSIZE+RMX_PACKET_HEADSIZE) 
-                        && len >= (pEthFrame->datalen - RMX_PACKET_HEADSIZE))
-                    ){
-                PRN_SHOWBUF("RMX?? %s :%d/%d ",channelname,pEthFrame->datalen -RMX_PACKET_HEADSIZE ,len);
-            }
-        }
-#endif
+    const uint8_t   *data   = pEthFrame->data;
+    int              restsz = (int)pEthFrame->datalen;
+    int             printtitle  = 1;
+    int             ret     = DecRMXHead(data,restsz,printtitle);
+    if( ret <= 0 ){
+        return -1;
     }
+    printtitle  = 0;
+    data    += ret;
+    restsz  -= ret;
+#endif
 
     return 0;
 }

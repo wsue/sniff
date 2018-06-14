@@ -11,7 +11,7 @@
 
 
 
-#define PER_PACKET_SIZE             (2048)  //  pcap 文件中每个包的最大大小
+#define PER_PACKET_SIZE             (4096)  //  pcap 文件中每个包的最大大小
 #define ETH_MTU_MAX                 (1800)  //  认为网卡合法的 MTU 大小,暂定为大于1540
 #define DEFAULT_MMAP_QLEN           2000    //  默认的mmap队列长度
 #define DEFAULT_ETH_FRAMETYPE       0xffff  //  默认以太网帧类型

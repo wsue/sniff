@@ -45,7 +45,7 @@ static struct option sniff_options[] = {
     {"vncstart",     1, 0, SNIFF_OPCODE_VNCPORT},
 
     //  ÏÔÊ¾¿ØÖÆ
-    {"alias",        1, 0, SNIFF_OPCODE_ALIAS},
+    {"alias",        2, 0, SNIFF_OPCODE_ALIAS},
     {"m",            1, 0, SNIFF_OPCODE_SHOWMATCH},
     {"M",            1, 0, SNIFF_OPCODE_SHOWNOMATCH},
     {"x",            0, 0, SNIFF_OPCODE_HEX},
@@ -348,7 +348,7 @@ static int Run(struct SniffDevCtl *ptDev,const struct SniffConf *ptConf)
 		    ret = 0;
     }while( ret == 0 && (ptConf->dwCapNum == 0 || recvcnt != ptConf->dwCapNum) );
 
-    PRN_MSG("recv %d package, stop for err:%d\n",recvcnt,ret);
+    PRN_MSG("recv %d package, stop for err:%d cap:%d/%d\n",recvcnt,ret,recvcnt , ptConf->dwCapNum);
     return ret;
 }
 
