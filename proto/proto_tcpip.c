@@ -468,6 +468,7 @@ void TcpipParser_SetParam(char opcode,const char *optarg)
             sTcpShowMode.bDecEthMac = TRUE;
             break;
 
+        case SNIFF_OPCODE_RDCAPFILE:
         case SNIFF_OPCODE_RMXPROTO:
             TCPRMX_SetParam(opcode,optarg);
             break;

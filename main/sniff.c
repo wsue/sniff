@@ -136,6 +136,7 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
 
             case SNIFF_OPCODE_RDCAPFILE:
                 strncpy(ptConf->strCapFileRd,optarg,sizeof(ptConf->strCapFileRd)-1);
+                TcpipParser_SetParam(c,optarg);
                 break;
 
             case SNIFF_OPCODE_WRCAPFILE:

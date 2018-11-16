@@ -12,6 +12,7 @@
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
+#include <zlib.h>
 
 #include "sniff_error.h"
 #include "sniff.h"
@@ -29,9 +30,70 @@
 
 
 static int sOnlyRMXData = 1;
+static int sUncompress  = 0;
 
 
 
+static int RMXuncompress(uint8_t * outbuf, size_t * out_len, const uint8_t *  inbuf, size_t* in_len)
+{
+    static uint8_t ziptail[4] /* PRIV */;
+
+    z_stream strm;
+    memset(&strm,0,sizeof(strm));
+    int ret = inflateInit2(&strm, -15);
+    if (ret != Z_OK){
+        *out_len    = 0;
+        return ret;
+    }
+
+#if 0
+    ret = inflateReset(&strm);
+    if (ret != Z_OK){
+        printf("reset fail:%d\n",ret);
+        inflateEnd(&strm);
+        *out_len    = 0;
+        return ret;
+    }
+#endif
+#if 0
+    strm.next_in   = decstr;//inbuf;
+    strm.avail_in  = 33;//*in_len;
+#else
+    strm.next_in   = (char *)inbuf;
+    strm.avail_in  = *in_len;
+#endif
+    strm.next_out  = outbuf;
+    strm.avail_out = *out_len;
+
+    *out_len    = 0;
+
+    while (strm.avail_in) {
+        ret = inflate(&strm, Z_NO_FLUSH);
+        if( ret != Z_OK){
+            printf("%s:%d inflate fail:%d\n",__func__,__LINE__,ret);
+            break;
+        }
+    }
+
+    if( ret == Z_OK){
+        strm.avail_in  = 4;
+        strm.next_in   = ziptail;
+        while (strm.avail_in) {
+            ret = inflate(&strm, Z_SYNC_FLUSH);
+            if( ret != Z_OK){
+                printf("%s:%d inflate fail:%d\n",__func__,__LINE__,ret);
+                break;
+            }
+        }
+    }
+
+    inflateEnd(&strm);
+    if( ret == Z_OK){
+        *out_len = strm.total_out;
+    }
+
+    return ret;
+}
 
 static const char* RMXGetChannelName(uint8_t id,size_t rmxlen,const uint8_t* body)
 {
@@ -75,6 +137,9 @@ int TCPRMX_SetParam(char opcode,const char *optarg)
     switch( opcode ){
         case SNIFF_OPCODE_RMXPROTO:
             sOnlyRMXData    = 0;
+            break;
+        case SNIFF_OPCODE_RDCAPFILE:
+            sUncompress     = 1;
             break;
 
         default:

@@ -51,7 +51,7 @@ static inline size_t lens2sz(uint8_t lens[3]){
     return (lens[0] << 16 )| (lens[1] << 8 ) || lens[2];
 }
 
-static const char* tlsver2str(ver){
+static const char* tlsver2str(uint16_t ver){
     const char* tlsver  = "Unkown";
     switch( ver ){
         case 0x0300:  tlsver  = "SSL 3.0"; break;
