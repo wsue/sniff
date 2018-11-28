@@ -27,7 +27,7 @@ extern uint16_t g_wShowBufAvaliable;
     g_wShowBufOffset    = 0;        \
 }while(0)
 
-#define PRN_SHOWBUF_ERRMSG(fmt,arg...)          PRN_SHOWBUF("\e[41m" fmt "\e[0m",##arg)
+#define PRN_SHOWBUF_ERRMSG(fmt,arg...)          printf("\e[41m" fmt "\e[0m",##arg)
 #define PRN_SHOWBUF_COLOR(color,fmt,arg...)     PRN_SHOWBUF("\e\[%dm" fmt "\e\[0m",(color),##arg)
 
 int     ProtoMisc_ShowString(const unsigned char* content, int contentlen,const char* matchtoken);

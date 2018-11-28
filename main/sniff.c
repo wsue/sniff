@@ -128,6 +128,8 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
     ptConf->wMmapQLen      = DEFAULT_MMAP_QLEN;
     ptConf->wEthFrameType   = DEFAULT_ETH_FRAMETYPE;
 
+    //  set default value
+    strcpy(ptConf->strEthname,"eth0");
     while ( ret == 0 && (c = getopt_long_only(argc, argv, "i:r:f:pc:P:F:m:M:w:s", sniff_options, NULL)) != -1 ) {  
         switch ( c ) {  
             case SNIFF_OPCODE_DEVNAME:
@@ -135,6 +137,7 @@ static int ParseArgs(struct SniffConf *ptConf,int argc, char ** argv)
                 break;
 
             case SNIFF_OPCODE_RDCAPFILE:
+                ptConf->strEthname[0]   = 0;
                 strncpy(ptConf->strCapFileRd,optarg,sizeof(ptConf->strCapFileRd)-1);
                 TcpipParser_SetParam(c,optarg);
                 break;
